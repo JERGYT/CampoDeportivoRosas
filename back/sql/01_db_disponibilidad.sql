@@ -36,24 +36,26 @@ CREATE TABLE IF NOT EXISTS bloqueos_horario (
     FOREIGN KEY (espacio_id) REFERENCES espacios(id) ON DELETE CASCADE
 );
 
--- Datos iniciales
-INSERT INTO espacios (id, nombre, tipo, capacidad, jugadores_por_equipo, dimensiones) 
+INSERT IGNORE INTO espacios (id, nombre, tipo, capacidad, jugadores_por_equipo, dimensiones)
 VALUES (1, 'Cancha Sintética Fútbol 8', 'FUTBOL', 16, 8, '40x20m');
 
-INSERT INTO espacios (id, nombre, tipo, capacidad, numero_carriles) 
+INSERT IGNORE INTO espacios (id, nombre, tipo, capacidad, numero_carriles)
 VALUES (2, 'Pistas de Tejo Tradicional', 'TEJO', 20, 4);
 
-INSERT INTO espacios (id, nombre, tipo, capacidad, tiene_sonido) 
+INSERT IGNORE INTO espacios (id, nombre, tipo, capacidad, tiene_sonido)
 VALUES (3, 'Salón de Eventos Principal', 'SALON_COMUNAL', 80, 1);
 
-INSERT INTO espacios (id, nombre, tipo, capacidad, numero_asadores, tiene_mesas) 
+INSERT IGNORE INTO espacios (id, nombre, tipo, capacidad, numero_asadores, tiene_mesas)
 VALUES (4, 'Zona BBQ Los Rosas', 'BARBECUE', 30, 2, 1);
 
--- Horarios de atención: Lunes a Domingo de 06:00 a 22:00
 INSERT INTO horarios_atencion (espacio_id, dia, hora_apertura, hora_cierre)
 SELECT e.id, d.dia, '06:00:00', '22:00:00'
 FROM espacios e
 CROSS JOIN (
     SELECT 'LUNES' AS dia UNION SELECT 'MARTES' UNION SELECT 'MIERCOLES' 
     UNION SELECT 'JUEVES' UNION SELECT 'VIERNES' UNION SELECT 'SABADO' UNION SELECT 'DOMINGO'
-) d;
+) d
+WHERE NOT EXISTS (
+    SELECT 1 FROM horarios_atencion ha 
+    WHERE ha.espacio_id = e.id AND ha.dia = d.dia
+);

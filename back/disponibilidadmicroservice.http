@@ -1,0 +1,21 @@
+### Endpoint: Consultar disponibilidad dentro de horario (Lunes a Domingo 06:00 - 22:00)
+GET http://localhost/CampoDeportivoRosas/back/ms-disponibilidad/public/index.php/view/consultar?espacio_id=1&fecha=2026-10-20&hora_inicio=10:00:00&hora_fin=12:00:00
+
+### Endpoint: Consultar disponibilidad fuera de horario de atencion (Madrugada)
+GET http://localhost/CampoDeportivoRosas/back/ms-disponibilidad/public/index.php/view/consultar?espacio_id=1&fecha=2026-10-20&hora_inicio=03:00:00&hora_fin=05:00:00
+
+### Endpoint: Consultar cronograma semanal de bloqueos
+GET http://localhost/CampoDeportivoRosas/back/ms-disponibilidad/public/index.php/view/cronograma?espacio_id=1&desde=2026-10-12&hasta=2026-10-25
+
+### Endpoint: Bloquear horario directamente
+POST http://localhost/CampoDeportivoRosas/back/ms-disponibilidad/public/index.php/view/bloquear
+Content-Type: application/json
+
+{
+  "espacio_id": 1,
+  "reserva_id": 99,
+  "fecha": "2026-10-28",
+  "hora_inicio": "14:00:00",
+  "hora_fin": "16:00:00",
+  "tipo": "MANTENIMIENTO"
+}

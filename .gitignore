@@ -7,3 +7,6 @@ Thumbs.db
 # Logs y temporales
 *.log
 *.tmp
+
+# Composer
+**/vendor/

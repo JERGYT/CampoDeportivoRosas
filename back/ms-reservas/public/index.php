@@ -1,39 +1,21 @@
 <?php
-// Permitir solicitudes CORS
-header("Access-Control-Allow-Origin: *");
-header("Content-Type: application/json; charset=UTF-8");
-header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
-header("Access-Control-Allow-Headers: Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With");
+use Slim\Factory\AppFactory;
+use App\Middleware\Cors;
+use App\Config\Database;
 
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(200);
-    exit;
-}
+require __DIR__ . '/../vendor/autoload.php';
 
-require_once __DIR__ . '/../config/Database.php';
-require_once __DIR__ . '/../controllers/ReservaController.php';
+new Database();
 
-$database = new Database();
-$db = $database->getConnection();
-$controller = new ReservaController($db);
+$app = AppFactory::create();
+$app->setBasePath('/CampoDeportivoRosas/back/ms-reservas/public/index.php');
 
-$uri = $_SERVER['REQUEST_URI'];
-$method = $_SERVER['REQUEST_METHOD'];
+$app->addBodyParsingMiddleware();
+$app->addRoutingMiddleware();
+$app->add(new Cors());
+$app->addErrorMiddleware(true, true, true);
 
-if ($method === 'POST' && strpos($uri, 'confirmar') !== false) {
-    $controller->confirmarReserva();
-    exit;
-}
+$routes = require __DIR__ . '/../app/Endpoints/endpoints.php';
+$routes($app);
 
-if ($method === 'POST' && strpos($uri, 'validar-recurrencia') !== false) {
-    $controller->validarRecurrencia();
-    exit;
-}
-
-http_response_code(404);
-echo json_encode([
-    "status" => "error",
-    "mensaje" => "Ruta no encontrada",
-    "uri" => $uri
-]);
-exit;
+$app->run();
