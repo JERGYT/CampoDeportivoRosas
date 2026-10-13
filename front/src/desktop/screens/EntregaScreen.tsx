@@ -5,6 +5,7 @@ import { disponibilidadService } from '@/shared/services';
 import { colors } from '@/shared/theme/tokens';
 
 import { ProcesoReserva, ReservaResumenCard, TitleBar, TwoColumns } from '../components/composites';
+import { DateTimeField } from '../components/DatePicker';
 import { Button, Card, Chip, DataRow, Divider, Field, Notice, Row, T, Table } from '../components/ui';
 import { reservaR1048 } from '../data/demo';
 import { routes } from '../navigation';
@@ -14,7 +15,7 @@ export default function EntregaScreen() {
   const [validando, setValidando] = useState(false);
   const [observaciones, setObservaciones] = useState('Se entrega el espacio despejado y el inventario completo.');
   const [responsable, setResponsable] = useState('Carlos Ruiz · Operario');
-  const [fechaEntrega, setFechaEntrega] = useState('17/10/2026 · 16:00');
+  const [fechaEntrega, setFechaEntrega] = useState({ fecha: '2026-10-17', hora: '16:00' });
 
   // Revalida que la franja pactada siga bloqueada para R-1048 (GET /view/cronograma, ms-disponibilidad).
   const volverAValidar = async () => {
@@ -70,7 +71,7 @@ export default function EntregaScreen() {
               <Field label="Observaciones de entrega · opcional" value={observaciones} onChangeText={setObservaciones} />
               <Row gap={16}>
                 <Field label="Responsable de entrega" value={responsable} onChangeText={setResponsable} style={{ flex: 1 }} />
-                <Field label="Fecha y hora de entrega" value={fechaEntrega} onChangeText={setFechaEntrega} style={{ flex: 1 }} />
+                <DateTimeField label="Fecha y hora de entrega" fecha={fechaEntrega.fecha} hora={fechaEntrega.hora} onChange={(f, h) => setFechaEntrega({ fecha: f, hora: h })} style={{ flex: 1 }} />
               </Row>
             </Card>
           </>

@@ -5,6 +5,7 @@ import { Alert, Platform, View } from 'react-native';
 import { colors } from '@/shared/theme/tokens';
 
 import { ProcesoReserva, TitleBar, TwoColumns } from '../components/composites';
+import { DateTimeField } from '../components/DatePicker';
 import { Button, Card, Chip, DataRow, Divider, Field, Notice, Row, Small, T, Table, Timeline } from '../components/ui';
 import { routes } from '../navigation';
 
@@ -12,7 +13,7 @@ export default function LiquidacionScreen() {
   const [importe, setImporte] = useState('$115.000');
   const [metodo, setMetodo] = useState('Transferencia');
   const [referencia, setReferencia] = useState('TRX-DEMO-1725');
-  const [fecha, setFecha] = useState('17/10/2026 · 18:25');
+  const [fecha, setFecha] = useState({ fecha: '2026-10-17', hora: '18:25' });
   const [registradoPor, setRegistradoPor] = useState('Ana Martínez · Administradora');
   const [observacion, setObservacion] = useState('Pago final recibido por el servicio y el daño revisado.');
 
@@ -61,7 +62,7 @@ export default function LiquidacionScreen() {
               </Row>
               <Row gap={16}>
                 <Field label="Referencia del pago" value={referencia} onChangeText={setReferencia} style={{ flex: 1 }} />
-                <Field label="Fecha y hora" value={fecha} onChangeText={setFecha} style={{ flex: 1 }} />
+                <DateTimeField label="Fecha y hora" fecha={fecha.fecha} hora={fecha.hora} onChange={(f, h) => setFecha({ fecha: f, hora: h })} style={{ flex: 1 }} />
               </Row>
               <Field label="Registrado por" value={registradoPor} onChangeText={setRegistradoPor} />
               <Field label="Observación" value={observacion} onChangeText={setObservacion} />

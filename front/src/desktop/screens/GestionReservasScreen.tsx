@@ -7,6 +7,7 @@ import { colors } from '@/shared/theme/tokens';
 import { formatCOP } from '@/shared/utils/format';
 
 import { TitleBar, TwoColumns } from '../components/composites';
+import { DateRangeField } from '../components/DatePicker';
 import {
   Button,
   Card,
@@ -26,11 +27,6 @@ import { historialR1048, listadoReservas, type FilaReserva } from '../data/demo'
 import { routes } from '../navigation';
 
 const ESTADOS = ['Confirmada', 'Completada', 'Cancelada', 'Recibida', 'Finalizado'];
-const FECHAS = [
-  { label: '17 – 18 oct 2026', value: 'todas' },
-  { label: 'Sáb 17 oct 2026', value: '2026-10-17' },
-  { label: 'Dom 18 oct 2026', value: '2026-10-18' },
-];
 
 /** Acciones del detalle según el estado de la reserva seleccionada. */
 function accionesPara(fila: FilaReserva): { primaria: [string, Href]; secundaria?: [string, Href]; nota: string } {
@@ -60,9 +56,10 @@ export default function GestionReservasScreen() {
   const [espacios, setEspacios] = useState<Espacio[]>([]);
   const [estado, setEstado] = useState('todos');
   const [espacio, setEspacio] = useState<number>(0);
-  const [fecha, setFecha] = useState('todas');
+  // Rango de fechas de uso; vacío = sin límite por ese lado.
+  const [rango, setRango] = useState({ desde: '', hasta: '' });
   const [texto, setTexto] = useState('');
-  const [filtros, setFiltros] = useState({ estado: 'todos', espacio: 0, fecha: 'todas', texto: '' });
+  const [filtros, setFiltros] = useState({ estado: 'todos', espacio: 0, desde: '', hasta: '', texto: '' });
   const [seleccion, setSeleccion] = useState('R-1048');
 
   // GET /view/espacios (ms-disponibilidad) para el filtro de espacio
@@ -80,7 +77,8 @@ export default function GestionReservasScreen() {
         return (
           (filtros.estado === 'todos' || f.estado === filtros.estado) &&
           (!filtros.espacio || f.espacioId === filtros.espacio) &&
-          (filtros.fecha === 'todas' || f.fecha === filtros.fecha) &&
+          (!filtros.desde || f.fecha >= filtros.desde) &&
+          (!filtros.hasta || f.fecha <= filtros.hasta) &&
           (!q || `${f.ref} ${f.cliente} ${f.detalle.telefono}`.toLowerCase().includes(q))
         );
       }),
@@ -92,9 +90,9 @@ export default function GestionReservasScreen() {
   const limpiar = () => {
     setEstado('todos');
     setEspacio(0);
-    setFecha('todas');
+    setRango({ desde: '', hasta: '' });
     setTexto('');
-    setFiltros({ estado: 'todos', espacio: 0, fecha: 'todas', texto: '' });
+    setFiltros({ estado: 'todos', espacio: 0, desde: '', hasta: '', texto: '' });
   };
 
   return (
@@ -121,7 +119,13 @@ export default function GestionReservasScreen() {
             options={[{ label: 'Todos los espacios', value: 0 }, ...espacios.map((e) => ({ label: e.nombre, value: e.id }))]}
             style={{ flex: 1 }}
           />
-          <SelectField label="Fecha de uso" value={fecha} onChange={setFecha} options={FECHAS} style={{ flex: 1 }} />
+          <DateRangeField
+            label="Fechas de uso"
+            desde={rango.desde}
+            hasta={rango.hasta}
+            onChange={(desde, hasta) => setRango({ desde, hasta })}
+            style={{ flex: 1.4 }}
+          />
           <Field
             label="Cliente o referencia"
             value={texto}
@@ -133,9 +137,8 @@ export default function GestionReservasScreen() {
         <Row gap={16}>
           <Chip label={`${filas.length} resultados`} />
           <Button label="Agregar cliente" variant="secondary" onPress={() => router.push(routes.agregarCliente)} />
-          <Small>Corte ilustrativo: sábado 17 oct 2026 · 15:45</Small>
           <View style={{ flex: 1 }} />
-          <Button label="Consultar" onPress={() => setFiltros({ estado, espacio, fecha, texto })} />
+          <Button label="Consultar" onPress={() => setFiltros({ estado, espacio, ...rango, texto })} />
           <Button label="Limpiar" variant="secondary" onPress={limpiar} />
         </Row>
       </Card>

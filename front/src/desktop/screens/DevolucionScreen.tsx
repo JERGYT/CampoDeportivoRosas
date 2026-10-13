@@ -2,6 +2,7 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 
 import { ReservaResumenCard, TitleBar, TwoColumns } from '../components/composites';
+import { DateField } from '../components/DatePicker';
 import { Button, Card, Chip, DataRow, Divider, Field, Notice, Row, Small, Timeline } from '../components/ui';
 import { reservaR1052 } from '../data/demo';
 import { routes } from '../navigation';
@@ -60,7 +61,7 @@ export default function DevolucionScreen() {
               <Field label="Destino previsto" value={destino} onChangeText={setDestino} />
               <Row gap={16}>
                 <Field label="Referencia de la devolución" value={referencia} onChangeText={setReferencia} placeholder="Pendiente de realizar" style={{ flex: 1 }} />
-                <Field label="Fecha efectiva de devolución" value={fechaEfectiva} onChangeText={setFechaEfectiva} placeholder="Sin registrar" style={{ flex: 1 }} />
+                <DateField label="Fecha efectiva de devolución" value={fechaEfectiva} onChange={setFechaEfectiva} placeholder="Sin registrar" style={{ flex: 1 }} />
               </Row>
               <Field
                 label="Comprobante de devolución"

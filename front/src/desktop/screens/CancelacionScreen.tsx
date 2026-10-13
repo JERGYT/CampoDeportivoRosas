@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { colors } from '@/shared/theme/tokens';
 
 import { ReservaResumenCard, TitleBar, TwoColumns } from '../components/composites';
+import { DateTimeField } from '../components/DatePicker';
 import { Button, Card, Chip, DataRow, Divider, Field, Notice, Row, Small, Stepper, T } from '../components/ui';
 import { reservaR1052 } from '../data/demo';
 import { routes } from '../navigation';
@@ -12,7 +13,7 @@ export default function CancelacionScreen() {
   const [solicitante, setSolicitante] = useState('Diego Herrera · Cliente titular');
   const [contacto, setContacto] = useState('310 555 0146');
   const [canal, setCanal] = useState('Llamada del cliente');
-  const [fecha, setFecha] = useState('Viernes 16 oct 2026 · 10:20');
+  const [fecha, setFecha] = useState({ fecha: '2026-10-16', hora: '10:20' });
   const [motivo, setMotivo] = useState(
     'El cliente informa que no realizará la reunión familiar prevista y solicita cancelar la reserva de Zona BBQ.',
   );
@@ -36,7 +37,7 @@ export default function CancelacionScreen() {
               </Row>
               <Row gap={16}>
                 <Field label="Canal de solicitud" value={canal} onChangeText={setCanal} style={{ flex: 1 }} />
-                <Field label="Fecha de solicitud" value={fecha} onChangeText={setFecha} style={{ flex: 1 }} />
+                <DateTimeField label="Fecha de solicitud" fecha={fecha.fecha} hora={fecha.hora} onChange={(f, h) => setFecha({ fecha: f, hora: h })} style={{ flex: 1 }} />
               </Row>
               <Field label="Motivo de cancelación" value={motivo} onChangeText={setMotivo} multiline />
               <Field label="Notas del administrador" value={notas} onChangeText={setNotas} />

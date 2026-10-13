@@ -9,6 +9,7 @@ import { ApiError, disponibilidadService, type Espacio } from '@/shared/services
 import { toBackTime } from '@/shared/utils/format';
 
 import { TitleBar, TwoColumns } from '../components/composites';
+import { DateField, DateRangeField } from '../components/DatePicker';
 import { Cronograma } from '../components/Cronograma';
 import { Button, Card, Chip, Field, Notice, Row, SelectField, Small, Table } from '../components/ui';
 
@@ -87,7 +88,7 @@ export default function EspaciosScreen() {
             </Card>
             <Card title="Bloquear horario" badge={<Chip label={actual ? TIPO[actual.tipo] : '—'} />} style={{ zIndex: 10 }}>
               <Row gap={16} style={{ zIndex: 10 }}>
-                <Field label="Fecha (AAAA-MM-DD)" value={fecha} onChangeText={setFecha} style={{ flex: 1 }} />
+                <DateField label="Fecha" value={fecha} onChange={setFecha} style={{ flex: 1 }} />
                 <Field label="Hora de inicio" value={horaInicio} onChangeText={setHoraInicio} style={{ flex: 1 }} />
                 <Field label="Hora de fin" value={horaFin} onChangeText={setHoraFin} style={{ flex: 1 }} />
               </Row>
@@ -118,8 +119,17 @@ export default function EspaciosScreen() {
           <Card title="Cronograma de bloqueos">
             <Chip label={actual?.nombre ?? '—'} />
             <Row gap={16}>
-              <Field label="Desde" value={desde} onChangeText={setDesde} style={{ flex: 1 }} />
-              <Field label="Hasta" value={hasta} onChangeText={setHasta} style={{ flex: 1 }} />
+              <DateRangeField
+                label="Rango del cronograma"
+                desde={desde}
+                hasta={hasta}
+                allowClear={false}
+                onChange={(d, h) => {
+                  setDesde(d);
+                  setHasta(h);
+                }}
+                style={{ flex: 1 }}
+              />
             </Row>
             <Cronograma espacioId={seleccion} desde={desde} hasta={hasta} version={version} />
           </Card>

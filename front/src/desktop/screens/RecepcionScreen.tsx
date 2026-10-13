@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { colors } from '@/shared/theme/tokens';
 
 import { ProcesoReserva, ReservaResumenCard, TitleBar, TwoColumns } from '../components/composites';
+import { DateTimeField } from '../components/DatePicker';
 import { Button, Card, Chip, DataRow, Divider, Field, Notice, Row, Small, T, Table } from '../components/ui';
 import { reservaR1048 } from '../data/demo';
 import { routes } from '../navigation';
@@ -16,7 +17,7 @@ export default function RecepcionScreen() {
     'Un peto presenta una rotura lateral. El resto del inventario y la cancha se reciben en las condiciones registradas en la entrega.',
   );
   const [responsable, setResponsable] = useState('Carlos Ruiz · Operario');
-  const [fecha, setFecha] = useState('17/10/2026 · 18:05');
+  const [fecha, setFecha] = useState({ fecha: '2026-10-17', hora: '18:05' });
 
   return (
     <>
@@ -65,7 +66,7 @@ export default function RecepcionScreen() {
               {conIncidencias ? <Field label="Incidencia observada" value={incidencia} onChangeText={setIncidencia} multiline /> : null}
               <Row gap={16}>
                 <Field label="Responsable de recepción" value={responsable} onChangeText={setResponsable} style={{ flex: 1 }} />
-                <Field label="Fecha y hora" value={fecha} onChangeText={setFecha} style={{ flex: 1 }} />
+                <DateTimeField label="Fecha y hora" fecha={fecha.fecha} hora={fecha.hora} onChange={(f, h) => setFecha({ fecha: f, hora: h })} style={{ flex: 1 }} />
               </Row>
               {conIncidencias ? (
                 <Notice title="La valoración corresponde al administrador">

@@ -20,6 +20,7 @@ import { colors } from '@/shared/theme/tokens';
 import { formatFecha, shortTime, toBackTime } from '@/shared/utils/format';
 
 import { TitleBar, TwoColumns } from '../components/composites';
+import { DateField, MultiDateField } from '../components/DatePicker';
 import { Cronograma } from '../components/Cronograma';
 import { Button, Card, Chip, Field, Notice, Row, SelectField, Small, T, Table } from '../components/ui';
 
@@ -61,7 +62,7 @@ export default function NuevaReservaScreen() {
   const [anticipo, setAnticipo] = useState('50000');
   const [aviso, setAviso] = useState<Aviso>(null);
   const [cargando, setCargando] = useState<'consultar' | 'confirmar' | 'recurrencia' | null>(null);
-  const [fechasRecurrentes, setFechasRecurrentes] = useState('2026-10-24\n2026-10-25\n2026-10-31');
+  const [fechasRecurrentes, setFechasRecurrentes] = useState<string[]>(['2026-10-24', '2026-10-25', '2026-10-31']);
   const [sesiones, setSesiones] = useState<SesionValidada[] | null>(null);
   const [version, setVersion] = useState(0);
 
@@ -134,11 +135,10 @@ export default function NuevaReservaScreen() {
     setCargando('recurrencia');
     setSesiones(null);
     try {
-      const fechas = fechasRecurrentes.split(/\s+/).filter((f) => /^\d{4}-\d{2}-\d{2}$/.test(f));
       const r = await reservasService.validarRecurrencia({
         espacio_id: espacioId,
         tipo,
-        sesiones: fechas.map((f) => ({ fecha: f, hora_inicio: toBackTime(horaInicio), hora_fin: toBackTime(horaFin) })),
+        sesiones: fechasRecurrentes.map((f) => ({ fecha: f, hora_inicio: toBackTime(horaInicio), hora_fin: toBackTime(horaFin) })),
       });
       setSesiones(r.sesiones);
     } catch (e) {
@@ -176,7 +176,7 @@ export default function NuevaReservaScreen() {
               </Row>
               <Field label="Entidad organizadora · opcional" value={entidad} onChangeText={setEntidad} />
               <Row gap={16}>
-                <Field label="Fecha (AAAA-MM-DD)" value={fecha} onChangeText={setFecha} style={{ flex: 1 }} />
+                <DateField label="Fecha" value={fecha} onChange={setFecha} style={{ flex: 1 }} />
                 <Field label="Hora de inicio" value={horaInicio} onChangeText={setHoraInicio} style={{ flex: 1 }} />
                 <Field label="Hora de fin" value={horaFin} onChangeText={setHoraFin} style={{ flex: 1 }} />
                 <Field label="Anticipo · COP" value={anticipo} onChangeText={setAnticipo} keyboardType="numeric" style={{ flex: 1 }} />
@@ -194,11 +194,10 @@ export default function NuevaReservaScreen() {
             </Card>
 
             <Card title="Reserva recurrente" badge={<Chip label="Varias sesiones" />}>
-              <Field
-                label="Fechas de las sesiones · una por línea"
-                value={fechasRecurrentes}
-                onChangeText={setFechasRecurrentes}
-                multiline
+              <MultiDateField
+                label="Fechas de las sesiones"
+                values={fechasRecurrentes}
+                onChange={setFechasRecurrentes}
                 helper="Usa el mismo espacio, cliente y franja de arriba."
               />
               <Button label="Validar recurrencia" variant="secondary" loading={cargando === 'recurrencia'} onPress={validarRecurrencia} />
