@@ -1,0 +1,7 @@
+{
+  "replaceAttrValues": {
+    "white": "currentColor",
+    "#C6BBD7": "currentColor",
+    "#766975": "currentColor"
+  }
+}
