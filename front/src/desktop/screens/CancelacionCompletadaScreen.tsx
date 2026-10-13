@@ -4,7 +4,7 @@ import { StyleSheet, View } from 'react-native';
 import { colors, radius } from '@/shared/theme/tokens';
 
 import { ReservaResumenCard, TwoColumns, TitleBar } from '../components/composites';
-import { Button, Card, Chip, DataRow, Divider, FooterNote, Notice, Row, Small, T, Table } from '../components/ui';
+import { Button, Card, Chip, DataRow, Divider, Notice, Row, Small, T, Table } from '../components/ui';
 import { reservaR1052 } from '../data/demo';
 import { routes } from '../navigation';
 
@@ -42,7 +42,7 @@ export default function CancelacionCompletadaScreen() {
               </Row>
               <T lh={1.45}>Motivo: el titular no realizará la reunión familiar prevista. El registro se conserva para consulta y trazabilidad.</T>
             </Card>
-            <Card title="Auditoría de acciones" badge={<Chip label="Datos de ejemplo" />}>
+            <Card title="Auditoría de acciones">
               <Table
                 columns={[{ title: 'Momento', width: 170 }, { title: 'Acción y resultado', flex: 1.7 }, { title: 'Responsable', flex: 1 }]}
                 rows={[
@@ -74,16 +74,15 @@ export default function CancelacionCompletadaScreen() {
               </T>
               <Button label="Gestionar devolución" onPress={() => router.push(routes.devolucion)} />
               <Button label="Consultar franja liberada" variant="secondary" onPress={() => router.push(routes.espacios)} />
-              <Small>Multa por cancelación: concepto futuro, no aplicado. No existe un cargo registrado por cancelación en este ejemplo.</Small>
+              <Small>Multa por cancelación: concepto futuro, no aplicado. No existe un cargo registrado por cancelación.</Small>
             </Card>
           </>
         }
       />
-      <FooterNote />
     </>
   );
 }
 
 const styles = StyleSheet.create({
-  tile: { flex: 1, borderRadius: radius.card - 4, padding: 20, gap: 10 },
+  tile: { flex: 1, minWidth: 170, borderRadius: radius.card - 4, padding: 20, gap: 10 },
 });

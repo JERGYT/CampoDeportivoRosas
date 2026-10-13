@@ -22,7 +22,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
       <Sidebar active={meta.active} />
       <View style={styles.main}>
         <View style={styles.header}>
-          <T size={13} color={colors.textMuted}>
+          <T size={13} color={colors.textMuted} numberOfLines={1} style={{ flex: 1, minWidth: 0, marginRight: 16 }}>
             {meta.breadcrumb}
           </T>
           <View style={{ width: 20, height: 20 }}>

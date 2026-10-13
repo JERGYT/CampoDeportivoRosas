@@ -115,7 +115,8 @@ export default function EspaciosScreen() {
           </>
         }
         aside={
-          <Card title="Cronograma de bloqueos" badge={<Chip label={actual?.nombre ?? '—'} />}>
+          <Card title="Cronograma de bloqueos">
+            <Chip label={actual?.nombre ?? '—'} />
             <Row gap={16}>
               <Field label="Desde" value={desde} onChangeText={setDesde} style={{ flex: 1 }} />
               <Field label="Hasta" value={hasta} onChangeText={setHasta} style={{ flex: 1 }} />

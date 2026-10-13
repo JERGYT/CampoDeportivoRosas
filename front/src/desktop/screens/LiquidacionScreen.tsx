@@ -5,7 +5,7 @@ import { Alert, Platform, View } from 'react-native';
 import { colors } from '@/shared/theme/tokens';
 
 import { ProcesoReserva, TitleBar, TwoColumns } from '../components/composites';
-import { Button, Card, Chip, DataRow, Divider, Field, FooterNote, Notice, Row, Small, T, Table, Timeline } from '../components/ui';
+import { Button, Card, Chip, DataRow, Divider, Field, Notice, Row, Small, T, Table, Timeline } from '../components/ui';
 import { routes } from '../navigation';
 
 export default function LiquidacionScreen() {
@@ -24,7 +24,7 @@ export default function LiquidacionScreen() {
 
   return (
     <>
-      <TitleBar title="Liquidación y pago final" subtitle="Alquiler, daños y anticipo en un mismo cierre. Pago final registrado en este ejemplo." />
+      <TitleBar title="Liquidación y pago final" subtitle="Alquiler, daños y anticipo en un mismo cierre. Pago final registrado." />
       <ProcesoReserva current={3} finished />
       <Notice tone="success" title="Liquidación completada · Reserva cerrada">
         R-1048 · Ana Martínez · Sábado 17 oct 2026, 18:25 · Etapa actual: Liquidar · Saldo $0 COP.
@@ -32,7 +32,7 @@ export default function LiquidacionScreen() {
       <TwoColumns
         main={
           <>
-            <Card title="Liquidación de R-1048" badge={<Chip label="Tarifa de ejemplo · COP" />}>
+            <Card title="Liquidación de R-1048" badge={<Chip label="Tarifa · COP" />}>
               <T size={18} weight="semibold" lh={1.45}>
                 Fútbol · Escuela de Fútbol Semillero
               </T>
@@ -119,7 +119,6 @@ export default function LiquidacionScreen() {
           </>
         }
       />
-      <FooterNote />
     </>
   );
 }

@@ -14,7 +14,6 @@ import {
   DataRow,
   Divider,
   Field,
-  FooterNote,
   Notice,
   Row,
   SelectField,
@@ -103,7 +102,7 @@ export default function GestionReservasScreen() {
       <TitleBar
         title="Gestión de reservas"
         subtitle="Consulta reservas pactadas y distingue las consultas que terminaron sin reservar."
-        badge={<Chip label="Datos de ejemplo" />}
+       
       />
 
       <Card title="Buscar y filtrar" style={{ zIndex: 10 }}>
@@ -132,7 +131,7 @@ export default function GestionReservasScreen() {
           />
         </Row>
         <Row gap={16}>
-          <Chip label={`${filas.length} resultados de ejemplo`} />
+          <Chip label={`${filas.length} resultados`} />
           <Button label="Agregar cliente" variant="secondary" onPress={() => router.push(routes.agregarCliente)} />
           <Small>Corte ilustrativo: sábado 17 oct 2026 · 15:45</Small>
           <View style={{ flex: 1 }} />
@@ -163,7 +162,7 @@ export default function GestionReservasScreen() {
               />
               <Row gap={16}>
                 <View style={{ flex: 1 }}>
-                  <Small>{`Mostrando ${filas.length} de ${listadoReservas.length} · Datos de ejemplo`}</Small>
+                  <Small>{`Mostrando ${filas.length} de ${listadoReservas.length}`}</Small>
                 </View>
                 <Button label="‹ Anterior" variant="disabled" />
                 <Button label="Siguiente ›" variant="disabled" />
@@ -196,7 +195,7 @@ export default function GestionReservasScreen() {
                 {`${actual.detalle.telefono} · ${actual.detalle.correo}`}
               </T>
               <Divider />
-              <Chip label="Tarifa de ejemplo · COP" />
+              <Chip label="Tarifa · COP" />
               <DataRow label="Alquiler" value={formatCOP(actual.detalle.alquiler)} />
               <DataRow label="Anticipo registrado" value={formatCOP(-actual.detalle.anticipo)} />
               <DataRow big label="Saldo de servicio" value={formatCOP(actual.detalle.alquiler - actual.detalle.anticipo)} />
@@ -213,7 +212,6 @@ export default function GestionReservasScreen() {
           </>
         }
       />
-      <FooterNote />
     </>
   );
 }

@@ -5,7 +5,7 @@ import { disponibilidadService, type Espacio } from '@/shared/services';
 import { colors, radius } from '@/shared/theme/tokens';
 
 import { TitleBar, TwoColumns } from '../components/composites';
-import { Button, Card, Chip, DataRow, Divider, Field, FooterNote, Notice, Row, SelectField, Small, T, Table } from '../components/ui';
+import { Button, Card, Chip, DataRow, Divider, Field, Notice, Row, SelectField, Small, T, Table } from '../components/ui';
 
 const semanas = [
   { label: '01–07 oct', total: '$300.000', anticipos: 120000, pagos: 180000 },
@@ -22,7 +22,7 @@ function Kpi({ titulo, valor, detalle }: { titulo: string; valor: string; detall
       <T size={13} color={colors.textMuted} lh={1.45}>
         {titulo}
       </T>
-      <T size={34} weight="semibold" lh={1.3}>
+      <T size={30} weight="semibold" lh={1.3} numberOfLines={1}>
         {valor}
       </T>
       <Small>{detalle}</Small>
@@ -63,9 +63,9 @@ export default function ReportesScreen() {
     <>
       <TitleBar title="Reportes de reservas e ingresos" subtitle="Concepto de consulta para el administrador. Todas las cifras son ilustrativas y no son métricas reales." />
       <Notice title="Funcionalidad futura">
-        Exploración visual del módulo pendiente. Filtros, gráficos y exportación son controles de ejemplo, sin conexión a datos reales.
+        Exploración visual del módulo pendiente. Filtros, gráficos y exportación aún no están conectados a datos reales.
       </Notice>
-      <Card title="Filtros del reporte" badge={<Chip label="Datos de ejemplo" />} style={{ zIndex: 10 }}>
+      <Card title="Filtros del reporte" style={{ zIndex: 10 }}>
         <Row gap={16}>
           <Field label="Periodo" value={periodo} onChangeText={setPeriodo} style={{ flex: 1 }} />
           <SelectField
@@ -127,8 +127,8 @@ export default function ReportesScreen() {
               <Row gap={0} align="flex-end" style={{ height: ALTURA + 90, paddingTop: 20 }}>
                 {semanas.map((s) => (
                   <View key={s.label} style={{ flex: 1, alignItems: 'center', gap: 8 }}>
-                    <T weight="semibold">{s.total}</T>
-                    <View style={{ width: 96, borderTopLeftRadius: 6, borderTopRightRadius: 6, overflow: 'hidden' }}>
+                    <T weight="semibold" numberOfLines={1}>{s.total}</T>
+                    <View style={{ width: '70%', maxWidth: 96, borderTopLeftRadius: 6, borderTopRightRadius: 6, overflow: 'hidden' }}>
                       <View style={{ height: (s.pagos / MAX) * ALTURA, backgroundColor: colors.primary }} />
                       <View style={{ height: (s.anticipos / MAX) * ALTURA, backgroundColor: colors.navy }} />
                     </View>
@@ -138,7 +138,7 @@ export default function ReportesScreen() {
                   </View>
                 ))}
               </Row>
-              <Small>Datos de ejemplo · Moneda asumida COP · No se incluyen cargos futuros.</Small>
+              <Small>Moneda asumida COP · No se incluyen cargos futuros.</Small>
             </Card>
             <Card title="Resumen por espacio">
               <Table
@@ -184,7 +184,6 @@ export default function ReportesScreen() {
           </>
         }
       />
-      <FooterNote />
     </>
   );
 }
@@ -192,6 +191,7 @@ export default function ReportesScreen() {
 const styles = StyleSheet.create({
   kpi: {
     flex: 1,
+    minWidth: 230,
     gap: 12,
     padding: 24,
     borderRadius: radius.card,

@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import { CalendarX, ChartNoAxesCombined, ClipboardCheck } from 'lucide-react-native';
 import type { ReactNode } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import SimboloAgenda from '@/assets/figma/simbolo-agenda.svg';
 import SimboloClientes from '@/assets/figma/simbolo-clientes.svg';
@@ -9,6 +9,7 @@ import SimboloEspacios from '@/assets/figma/simbolo-espacios.svg';
 import SimboloPagos from '@/assets/figma/simbolo-pagos.svg';
 import { colors, layout, radius } from '@/shared/theme/tokens';
 
+import { useResponsive } from '../hooks/useResponsive';
 import { navTargets, routes, type NavKey } from '../navigation';
 import { Brand } from './Brand';
 import { Button, T } from './ui';
@@ -33,11 +34,16 @@ const items: { key: NavKey; label: string; icon: (color: string) => ReactNode }[
 
 /** Menú lateral azul: fijo, no se desplaza con el contenido. */
 export function Sidebar({ active }: { active: NavKey[] }) {
+  const { short } = useResponsive();
   return (
-    <View style={styles.sidebar}>
+    // Menú fijo: no se mueve con el contenido; si la pantalla es muy baja, se desplaza por dentro.
+    <ScrollView
+      style={styles.sidebar}
+      contentContainerStyle={[styles.sidebarContent, short && { gap: 20, paddingVertical: 20 }]}
+      showsVerticalScrollIndicator={false}>
       <Brand />
       <Button label="Reservar" onPress={() => router.push(routes.nuevaReserva)} style={{ alignSelf: 'stretch' }} />
-      <View style={{ gap: 10 }}>
+      <View style={{ gap: short ? 4 : 10 }}>
         {items.map((item) => {
           const isActive = active.includes(item.key);
           const color = isActive ? colors.white : colors.navMuted;
@@ -47,6 +53,7 @@ export function Sidebar({ active }: { active: NavKey[] }) {
               onPress={() => router.navigate(navTargets[item.key])}
               style={(state) => [
                 styles.item,
+                short && { paddingVertical: 10 },
                 (isActive || (state as { hovered?: boolean }).hovered) && { backgroundColor: colors.navActive },
               ]}>
               <View style={{ width: 18, height: 18 }}>{item.icon(color)}</View>
@@ -58,7 +65,7 @@ export function Sidebar({ active }: { active: NavKey[] }) {
         })}
       </View>
 
-      <View style={{ marginTop: 'auto', gap: 20 }}>
+      <View style={{ marginTop: 'auto', gap: short ? 14 : 20 }}>
         <T size={12} color={colors.navMuted}>
           ¿Necesitas ayuda?
         </T>
@@ -82,24 +89,23 @@ export function Sidebar({ active }: { active: NavKey[] }) {
           </View>
         </Pressable>
       </View>
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   sidebar: {
     width: layout.sidebarWidth,
+    flexGrow: 0,
     height: '100%',
     backgroundColor: colors.navy,
-    paddingHorizontal: 20,
-    paddingVertical: 30,
-    gap: 32,
     shadowColor: '#000',
     shadowOpacity: 0.08,
     shadowRadius: 16,
     shadowOffset: { width: 4, height: 0 },
     zIndex: 2,
   },
+  sidebarContent: { flexGrow: 1, paddingHorizontal: 20, paddingVertical: 30, gap: 32 },
   item: {
     flexDirection: 'row',
     alignItems: 'center',

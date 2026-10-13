@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { colors } from '@/shared/theme/tokens';
 
 import { ReservaResumenCard, TitleBar, TwoColumns } from '../components/composites';
-import { Button, Card, Chip, DataRow, Divider, Field, FooterNote, Notice, Row, Small, Stepper, T } from '../components/ui';
+import { Button, Card, Chip, DataRow, Divider, Field, Notice, Row, Small, Stepper, T } from '../components/ui';
 import { reservaR1052 } from '../data/demo';
 import { routes } from '../navigation';
 
@@ -81,7 +81,6 @@ export default function CancelacionScreen() {
           </>
         }
       />
-      <FooterNote />
     </>
   );
 }

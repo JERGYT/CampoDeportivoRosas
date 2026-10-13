@@ -5,7 +5,7 @@ import { colors } from '@/shared/theme/tokens';
 import { formatCOP } from '@/shared/utils/format';
 
 import { ReservaResumenCard, TitleBar, TwoColumns } from '../components/composites';
-import { Button, Card, Chip, DataRow, Divider, Field, FooterNote, Notice, Row, Small, T, Table, Timeline } from '../components/ui';
+import { Button, Card, Chip, DataRow, Divider, Field, Notice, Row, Small, T, Table, Timeline } from '../components/ui';
 import { reservaR1048 } from '../data/demo';
 import { routes } from '../navigation';
 
@@ -41,7 +41,7 @@ export default function DanosScreen() {
               </Row>
               <Field label="Nota de revisión del administrador" value={nota} onChangeText={setNota} multiline />
             </Card>
-            <Card title="Valoración manual" badge={<Chip label="Datos de ejemplo" />}>
+            <Card title="Valoración manual">
               <Row gap={16}>
                 <Field label="Criterio o justificación" value={criterio} onChangeText={setCriterio} style={{ flex: 1 }} />
                 <Field
@@ -93,7 +93,6 @@ export default function DanosScreen() {
           </>
         }
       />
-      <FooterNote />
     </>
   );
 }

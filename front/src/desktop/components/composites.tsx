@@ -6,19 +6,29 @@ import { router } from 'expo-router';
 import type { ReactNode } from 'react';
 import { View } from 'react-native';
 
-import { colors, layout } from '@/shared/theme/tokens';
+import { colors } from '@/shared/theme/tokens';
 import { formatCOP } from '@/shared/utils/format';
 
 import type { ReservaDemo } from '../data/demo';
+import { useResponsive } from '../hooks/useResponsive';
 import { routes } from '../navigation';
 import { Card, Chip, DataRow, Divider, Row, Small, Stepper, T } from './ui';
 
-/** Columna principal flexible + columna lateral de 420 px. */
+/** Columna principal flexible + columna lateral (420 px a 1600, 340 px en pantallas medianas, debajo en pequeñas). */
 export function TwoColumns({ main, aside }: { main: ReactNode; aside: ReactNode }) {
+  const { asideWidth } = useResponsive();
+  if (asideWidth === null) {
+    return (
+      <View style={{ gap: 22 }}>
+        {main}
+        {aside}
+      </View>
+    );
+  }
   return (
-    <Row gap={16}>
+    <Row gap={16} wrap={false}>
       <View style={{ flex: 1, minWidth: 0, gap: 22 }}>{main}</View>
-      <View style={{ width: layout.asideWidth, gap: 22 }}>{aside}</View>
+      <View style={{ width: asideWidth, gap: 22 }}>{aside}</View>
     </Row>
   );
 }
@@ -27,7 +37,7 @@ export function TwoColumns({ main, aside }: { main: ReactNode; aside: ReactNode 
 export function TitleBar({ title, subtitle, badge }: { title: string; subtitle: string; badge?: ReactNode }) {
   return (
     <Row gap={24} align="center">
-      <View style={{ flex: 1, gap: 6 }}>
+      <View style={{ flex: 1, minWidth: 0, gap: 6 }}>
         <T size={30} weight="semibold" lh={1.45}>
           {title}
         </T>
@@ -55,7 +65,7 @@ export function ReservaResumenCard({ reserva, estado }: { reserva: ReservaDemo; 
       <DataRow label="Contacto" value={reserva.contacto} />
       <Small>{reserva.contacto === reserva.telefono ? reserva.correo : `${reserva.telefono} · ${reserva.correo}`}</Small>
       <Divider />
-      <Chip label="Tarifa de ejemplo · COP" />
+      <Chip label="Tarifa · COP" />
       <DataRow label="Alquiler" value={formatCOP(reserva.alquiler)} />
       <DataRow label="Anticipo registrado" value={formatCOP(reserva.anticipo)} />
       <Small>Moneda asumida COP. Datos e importes ilustrativos; no son tarifas oficiales.</Small>

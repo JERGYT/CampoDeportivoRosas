@@ -6,7 +6,7 @@ import { ApiError, reservasService, type TipoCliente } from '@/shared/services';
 import { colors, radius } from '@/shared/theme/tokens';
 
 import { TitleBar, TwoColumns } from '../components/composites';
-import { Button, Card, Chip, Divider, Field, FieldLabel, FooterNote, Notice, Row, Small, T } from '../components/ui';
+import { Button, Card, Chip, Divider, Field, FieldLabel, Notice, Row, Small, T } from '../components/ui';
 import { routes } from '../navigation';
 
 type Perfil = Extract<TipoCliente, 'ESCUELA_FORMACION' | 'CAMPEONATO' | 'PARTICULAR'>;
@@ -167,7 +167,7 @@ export default function AgregarClienteScreen() {
               <T color={colors.textMuted} lh={1.45}>
                 {regla.texto}
               </T>
-              <Row gap={10}>
+              <Row gap={6} wrap={false}>
                 {DIAS.map((d, i) => (
                   <View key={d} style={[styles.day, !regla.habilitados[i] && styles.dayOff]}>
                     <T
@@ -203,7 +203,6 @@ export default function AgregarClienteScreen() {
           </>
         }
       />
-      <FooterNote />
     </>
   );
 }
@@ -211,6 +210,7 @@ export default function AgregarClienteScreen() {
 const styles = StyleSheet.create({
   radio: {
     flex: 1,
+    minWidth: 170,
     height: 58,
     flexDirection: 'row',
     alignItems: 'center',
@@ -235,7 +235,9 @@ const styles = StyleSheet.create({
   radioInner: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.navy },
   infoBox: { backgroundColor: colors.chip, borderRadius: radius.field, padding: 16, gap: 2 },
   day: {
-    width: 44,
+    flex: 1,
+    maxWidth: 44,
+    minWidth: 28,
     height: 40,
     borderRadius: radius.field,
     backgroundColor: colors.chip,

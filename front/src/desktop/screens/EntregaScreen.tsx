@@ -5,7 +5,7 @@ import { disponibilidadService } from '@/shared/services';
 import { colors } from '@/shared/theme/tokens';
 
 import { ProcesoReserva, ReservaResumenCard, TitleBar, TwoColumns } from '../components/composites';
-import { Button, Card, Chip, DataRow, Divider, Field, FooterNote, Notice, Row, T, Table } from '../components/ui';
+import { Button, Card, Chip, DataRow, Divider, Field, Notice, Row, T, Table } from '../components/ui';
 import { reservaR1048 } from '../data/demo';
 import { routes } from '../navigation';
 
@@ -54,7 +54,7 @@ export default function EntregaScreen() {
                 Estado confirmado y datos coincidentes. El anticipo es opcional; no condiciona esta validación. Sigue con Registrar entrega.
               </Notice>
             </Card>
-            <Card title="Inventario a entregar" badge={<Chip label="Datos de ejemplo" />}>
+            <Card title="Inventario a entregar">
               <T size={13} color={colors.textMuted} lh={1.45}>
                 Elementos y cantidades ilustrativos. Verifica físicamente cada ítem antes de registrar.
               </T>
@@ -94,7 +94,6 @@ export default function EntregaScreen() {
           </>
         }
       />
-      <FooterNote />
     </>
   );
 }

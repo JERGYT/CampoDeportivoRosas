@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { colors } from '@/shared/theme/tokens';
 
 import { ProcesoReserva, ReservaResumenCard, TitleBar, TwoColumns } from '../components/composites';
-import { Button, Card, Chip, DataRow, Divider, Field, FooterNote, Notice, Row, Small, T, Table } from '../components/ui';
+import { Button, Card, Chip, DataRow, Divider, Field, Notice, Row, Small, T, Table } from '../components/ui';
 import { reservaR1048 } from '../data/demo';
 import { routes } from '../navigation';
 
@@ -23,7 +23,7 @@ export default function RecepcionScreen() {
       <TitleBar title="Recepción final" subtitle="Compara lo recibido con la entrega, registra novedades y prepara el cierre." />
       <ProcesoReserva current={2} />
       <Notice title="Entrega registrada · R-1048 está en uso">
-        Carlos Ruiz entregó Fútbol el sábado 17 oct a las 16:00. Recepción de ejemplo: 18:05.
+        Carlos Ruiz entregó Fútbol el sábado 17 oct a las 16:00. Recepción: 18:05.
       </Notice>
       <TwoColumns
         main={
@@ -98,7 +98,6 @@ export default function RecepcionScreen() {
           </>
         }
       />
-      <FooterNote />
     </>
   );
 }

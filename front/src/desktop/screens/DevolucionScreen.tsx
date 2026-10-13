@@ -2,7 +2,7 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 
 import { ReservaResumenCard, TitleBar, TwoColumns } from '../components/composites';
-import { Button, Card, Chip, DataRow, Divider, Field, FooterNote, Notice, Row, Small, Timeline } from '../components/ui';
+import { Button, Card, Chip, DataRow, Divider, Field, Notice, Row, Small, Timeline } from '../components/ui';
 import { reservaR1052 } from '../data/demo';
 import { routes } from '../navigation';
 
@@ -49,7 +49,7 @@ export default function DevolucionScreen() {
                 <Field label="Momento de autorización" value={momento} onChangeText={setMomento} style={{ flex: 1 }} />
               </Row>
               <Notice title="Sin política de porcentaje ni plazo">
-                El importe autorizado es específico de este ejemplo. No se presume un porcentaje de devolución ni una fecha límite.
+                El importe autorizado es específico de este caso. No se presume un porcentaje de devolución ni una fecha límite.
               </Notice>
             </Card>
             <Card title="Preparación del registro" badge={<Chip label="Pendiente" />}>
@@ -57,7 +57,7 @@ export default function DevolucionScreen() {
                 <Field label="Beneficiario" value={beneficiario} onChangeText={setBeneficiario} style={{ flex: 1 }} />
                 <Field label="Método previsto" value={metodo} onChangeText={setMetodo} style={{ flex: 1 }} />
               </Row>
-              <Field label="Destino previsto · datos de ejemplo" value={destino} onChangeText={setDestino} />
+              <Field label="Destino previsto" value={destino} onChangeText={setDestino} />
               <Row gap={16}>
                 <Field label="Referencia de la devolución" value={referencia} onChangeText={setReferencia} placeholder="Pendiente de realizar" style={{ flex: 1 }} />
                 <Field label="Fecha efectiva de devolución" value={fechaEfectiva} onChangeText={setFechaEfectiva} placeholder="Sin registrar" style={{ flex: 1 }} />
@@ -104,7 +104,6 @@ export default function DevolucionScreen() {
           </>
         }
       />
-      <FooterNote />
     </>
   );
 }

@@ -45,8 +45,24 @@ export function T({ children, size = 14, weight = 'regular', color = colors.text
 
 // ───────────── Estructura ─────────────
 
-export function Row({ children, gap = 16, style, align = 'flex-start' }: { children: ReactNode; gap?: number; style?: StyleProp<ViewStyle>; align?: ViewStyle['alignItems'] }) {
-  return <View style={[{ flexDirection: 'row', gap, alignItems: align }, style]}>{children}</View>;
+/**
+ * Fila horizontal. Por defecto pasa a la línea siguiente cuando no cabe (pantallas pequeñas);
+ * los campos tienen un ancho mínimo para que nunca se descuadren.
+ */
+export function Row({
+  children,
+  gap = 16,
+  style,
+  align = 'flex-start',
+  wrap = true,
+}: {
+  children: ReactNode;
+  gap?: number;
+  style?: StyleProp<ViewStyle>;
+  align?: ViewStyle['alignItems'];
+  wrap?: boolean;
+}) {
+  return <View style={[{ flexDirection: 'row', gap, alignItems: align, flexWrap: wrap ? 'wrap' : 'nowrap' }, style]}>{children}</View>;
 }
 
 export function Col({ children, gap = 22, style }: { children: ReactNode; gap?: number; style?: StyleProp<ViewStyle> }) {
@@ -71,23 +87,12 @@ export function Divider({ color = colors.border }: { color?: string }) {
   return <View style={{ height: 1, backgroundColor: color, alignSelf: 'stretch' }} />;
 }
 
-/** Nota final de cada pantalla del mockup. */
-export function FooterNote() {
-  return (
-    <View style={{ paddingTop: 8 }}>
-      <T size={12} color={colors.textMuted} lh={1.45}>
-        Datos de ejemplo · Mockup estático editable · No representa una operación real.
-      </T>
-    </View>
-  );
-}
-
 export function Card({ title, badge, children, style, gap = 18 }: { title?: string; badge?: ReactNode; children?: ReactNode; style?: StyleProp<ViewStyle>; gap?: number }) {
   return (
     <View style={[styles.card, { gap }, style]}>
       {title ? (
-        <Row gap={12} align="center">
-          <T size={20} weight="semibold" lh={1.45} style={{ flex: 1 }}>
+        <Row gap={12} align="center" wrap={false}>
+          <T size={20} weight="semibold" lh={1.45} style={{ flex: 1, minWidth: 0 }}>
             {title}
           </T>
           {badge}
@@ -170,7 +175,7 @@ export function Button({
         style,
       ]}>
       {loading ? <ActivityIndicator size="small" color={fg} style={{ marginRight: 8 }} /> : null}
-      <T weight="semibold" color={fg}>
+      <T weight="semibold" color={fg} style={{ flexShrink: 1 }}>
         {label}
       </T>
     </Pressable>
@@ -178,6 +183,9 @@ export function Button({
 }
 
 // ───────────── Campos ─────────────
+
+/** Ancho mínimo de un campo antes de pasar a la siguiente línea. */
+const FIELD_MIN = 180;
 
 export function FieldLabel({ children }: { children: ReactNode }) {
   return (
@@ -207,7 +215,7 @@ export function Field({
   keyboardType?: 'default' | 'numeric' | 'email-address' | 'phone-pad';
 }) {
   return (
-    <View style={[{ gap: 7 }, style]}>
+    <View style={[{ gap: 7, minWidth: FIELD_MIN }, style]}>
       {label ? <FieldLabel>{label}</FieldLabel> : null}
       <TextInput
         value={value}
@@ -250,11 +258,11 @@ export function SelectField<V extends string | number>({
   const [open, setOpen] = useState(false);
   const current = options.find((o) => o.value === value)?.label ?? '';
   return (
-    <View style={[{ gap: 7, zIndex: open ? 50 : 1 }, style]}>
+    <View style={[{ gap: 7, minWidth: FIELD_MIN, zIndex: open ? 50 : 1 }, style]}>
       {label ? <FieldLabel>{label}</FieldLabel> : null}
       <View>
         <Pressable onPress={() => setOpen((o) => !o)} style={styles.input}>
-          <T lh={1.45}>{`${current} ⌄`}</T>
+          <T lh={1.45} numberOfLines={1}>{`${current} ⌄`}</T>
         </Pressable>
         {open ? (
           <View style={styles.dropdown}>
@@ -300,7 +308,7 @@ export function Notice({
   return (
     <View style={[styles.notice, { backgroundColor: c.bg }, style]}>
       <Icon size={18} color={c.fg} strokeWidth={1.6} style={{ marginTop: 1 }} />
-      <View style={{ flex: 1, gap: 4 }}>
+      <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
         <T weight="semibold" color={c.fg} lh={1.45}>
           {title}
         </T>
@@ -318,11 +326,15 @@ export function Notice({
 
 export function DataRow({ label, value, big }: { label: string; value: string; big?: boolean }) {
   return (
-    <Row gap={16} align="center">
-      <T size={big ? 16 : 14} color={colors.textMuted} lh={1.45} style={{ flex: 1 }}>
+    <Row gap={16} align="center" wrap={false}>
+      <T size={big ? 16 : 14} color={colors.textMuted} lh={1.45} style={{ flex: 1, minWidth: 0 }}>
         {label}
       </T>
-      <T size={big ? 26 : 14} weight="semibold" color={big ? colors.amountStrong : colors.text}>
+      <T
+        size={big ? 26 : 14}
+        weight="semibold"
+        color={big ? colors.amountStrong : colors.text}
+        style={{ flexShrink: 1, textAlign: 'right' }}>
         {value}
       </T>
     </Row>
@@ -341,7 +353,7 @@ export function Small({ children, color = colors.textMuted }: { children: ReactN
 
 export interface Column {
   title: string;
-  /** Ancho fijo en px; si no se indica, la columna ocupa el espacio restante (flex). */
+  /** Ancho de referencia en px (del mockup); se escala con el ancho de la tabla. */
   width?: number;
   flex?: number;
 }
@@ -359,7 +371,9 @@ export function Table({
   onSelect?: (index: number) => void;
   boldFirst?: boolean;
 }) {
-  const cellStyle = (c: Column): ViewStyle => (c.width ? { width: c.width } : { flex: c.flex ?? 1, minWidth: 1 });
+  // Columnas proporcionales: los anchos del mockup (px) se reparten en proporción al ancho
+  // disponible; una columna flexible equivale a ~200 px. Así ninguna columna colapsa.
+  const cellStyle = (c: Column): ViewStyle => ({ flexGrow: c.width ?? (c.flex ?? 1) * 200, flexShrink: 1, flexBasis: 0, minWidth: 0 });
   return (
     <View style={{ alignSelf: 'stretch' }}>
       <View style={[styles.tr, { backgroundColor: colors.chip }]}>
@@ -424,7 +438,7 @@ export interface Step {
 
 export function Stepper({ steps, current }: { steps: Step[]; current: number }) {
   return (
-    <View style={[styles.card, { flexDirection: 'row', gap: 28, paddingVertical: 18, paddingHorizontal: 18, alignItems: 'center' }]}>
+    <View style={[styles.card, { flexDirection: 'row', flexWrap: 'wrap', columnGap: 28, rowGap: 12, paddingVertical: 18, paddingHorizontal: 18, alignItems: 'center' }]}>
       {steps.map((s, i) => {
         const active = i === current;
         return (
@@ -469,6 +483,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
   },
   button: {
+    maxWidth: '100%',
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
