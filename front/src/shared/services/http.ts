@@ -33,11 +33,14 @@ export async function request<T>(baseUrl: string, path: string, options: Request
         .join('&')
     : '';
 
+  // El cuerpo JSON se envía como text/plain para que el navegador no haga la petición previa
+  // OPTIONS (CORS preflight): Slim no tiene rutas OPTIONS y respondería 405. Los controladores
+  // del back leen el cuerpo con json_decode((string)$request->getBody()), así que da igual el tipo.
   let response: Response;
   try {
     response = await fetch(`${baseUrl}${path}${qs}`, {
       method,
-      headers: body ? { 'Content-Type': 'application/json', Accept: 'application/json' } : { Accept: 'application/json' },
+      headers: body ? { 'Content-Type': 'text/plain;charset=UTF-8' } : undefined,
       body: body ? JSON.stringify(body) : undefined,
     });
   } catch {

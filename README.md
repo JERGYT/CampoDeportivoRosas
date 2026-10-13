@@ -64,8 +64,8 @@ en este orden:
 Opción B, consola:
 
 ```bash
-C:/xampp/mysql/bin/mysql -u root < back/sql/01_db_disponibilidad.sql
-C:/xampp/mysql/bin/mysql -u root < back/sql/02_db_reservas.sql
+C:/xampp/mysql/bin/mysql -u root --default-character-set=utf8mb4 < back/sql/01_db_disponibilidad.sql
+C:/xampp/mysql/bin/mysql -u root --default-character-set=utf8mb4 < back/sql/02_db_reservas.sql
 ```
 
 ## 5. Instalar dependencias del backend
@@ -113,7 +113,8 @@ npm run web
 
 Se abre en `http://localhost:8081`.
 
-En `front/.env`:
+**Para conectar el front con el back**, en `front/.env` cambia `EXPO_PUBLIC_USE_MOCKS=true`
+por `EXPO_PUBLIC_USE_MOCKS=false`. Las variables son:
 
 - `EXPO_PUBLIC_USE_MOCKS=true` usa datos de prueba y no necesita el backend.
 - `EXPO_PUBLIC_USE_MOCKS=false` llama a los microservicios reales (Apache y MySQL encendidos).
@@ -130,4 +131,6 @@ Después de cambiar `.env`, detén `npm run web` (Ctrl+C) y vuelve a iniciarlo.
 | `SQLSTATE[HY000] [1049] Unknown database` | No se importaron los scripts de `back/sql/` |
 | `SQLSTATE[HY000] [2002]` | MySQL está apagado en XAMPP |
 | Composer pide PHP >= 8.2 | El PHP de XAMPP es viejo |
+| Nombres con tildes raras (`SintÃ©tica`) | Se importó el `.sql` por consola sin `--default-character-set=utf8mb4` |
+| El front muestra "No se pudo conectar con el servidor" | Apache apagado o el repo no está en `htdocs` |
 | El front sigue mostrando datos de prueba | `EXPO_PUBLIC_USE_MOCKS` sigue en `true` o no reiniciaste `npm run web` |
