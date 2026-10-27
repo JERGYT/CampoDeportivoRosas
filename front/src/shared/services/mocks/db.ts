@@ -1,7 +1,7 @@
 /**
- * Datos de prueba en memoria que replican las semillas SQL de la rama back
- * (back/sql/01_db_disponibilidad.sql y 02_db_reservas.sql). Se usan cuando
- * EXPO_PUBLIC_USE_MOCKS=true, mientras el back no esté corriendo.
+ * EXPO_PUBLIC_USE_MOCKS=false
+ * EXPO_PUBLIC_API_DISPONIBILIDAD=http://localhost/CampoDeportivoRosas/back/ms-disponibilidad/public/index.php/view
+ * EXPO_PUBLIC_API_RESERVAS=http://localhost/CampoDeportivoRosas/back/ms-reservas/public/index.php/view
  */
 import type { BloqueoHorario, Cliente, Espacio } from '../types';
 

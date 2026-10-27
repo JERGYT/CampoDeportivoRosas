@@ -55,11 +55,11 @@ export default function NuevaReservaScreen() {
   const [espacios, setEspacios] = useState<Espacio[]>([]);
   const [clienteId, setClienteId] = useState(2);
   const [espacioId, setEspacioId] = useState(1);
-  const [entidad, setEntidad] = useState('Torneo Relámpago Boyacá');
-  const [fecha, setFecha] = useState('2026-10-24');
-  const [horaInicio, setHoraInicio] = useState('14:00');
-  const [horaFin, setHoraFin] = useState('16:00');
-  const [anticipo, setAnticipo] = useState('50000');
+  const [entidad, setEntidad] = useState('');
+  const [fecha, setFecha] = useState('');
+  const [horaInicio, setHoraInicio] = useState('');
+  const [horaFin, setHoraFin] = useState('');
+  const [anticipo, setAnticipo] = useState('');
   const [aviso, setAviso] = useState<Aviso>(null);
   const [cargando, setCargando] = useState<'consultar' | 'confirmar' | 'recurrencia' | null>(null);
   const [fechasRecurrentes, setFechasRecurrentes] = useState<string[]>(['2026-10-24', '2026-10-25', '2026-10-31']);
@@ -92,7 +92,7 @@ export default function NuevaReservaScreen() {
       setAviso(
         r.disponible
           ? { tone: 'success', title: 'Franja disponible', text: `${formatFecha(r.fecha)} · ${shortTime(r.hora_inicio)} – ${shortTime(r.hora_fin)}` }
-          : { tone: 'danger', title: 'Franja no disponible', text: 'Está ocupada o fuera del horario de atención (06:00 – 22:00).' },
+          : { tone: 'danger', title: 'Franja no disponible', text: `La franja de ${shortTime(r.hora_inicio)} a ${shortTime(r.hora_fin)} está ocupada o fuera del horario de atención.` },
       );
     } catch (e) {
       setAviso({ tone: 'danger', title: 'No se pudo consultar', text: errorDe(e) });

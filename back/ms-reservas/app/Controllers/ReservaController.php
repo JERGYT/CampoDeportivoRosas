@@ -103,7 +103,10 @@ class ReservaController {
         );
 
         if (!$disponible) {
-            $response->getBody()->write(json_encode(["status" => "error", "mensaje" => "El horario seleccionado no está disponible"]));
+            $response->getBody()->write(json_encode([
+                "status" => "error", 
+                "mensaje" => "La franja de {$reserva->horaInicio} a {$reserva->horaFin} no está disponible para reserva."
+            ]));
             return $response->withHeader('Content-Type', 'application/json')->withStatus(409);
         }
 
@@ -124,5 +127,15 @@ class ReservaController {
 
         $response->getBody()->write(json_encode(["status" => "error", "mensaje" => "No se pudo registrar"]));
         return $response->withHeader('Content-Type', 'application/json')->withStatus(500);
+    }
+
+    public function listar(Request $request, Response $response): Response {
+        $params = $request->getQueryParams();
+        $reservas = $this->reservaRepository->listar($params);
+        $response->getBody()->write(json_encode([
+            "status" => "success",
+            "reservas" => $reservas
+        ]));
+        return $response->withHeader('Content-Type', 'application/json')->withStatus(200);
     }
 }

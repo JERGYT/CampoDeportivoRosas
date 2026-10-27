@@ -8,6 +8,7 @@ return function(App $app) {
     $app->group('/view', function (RouteCollectorProxy $group) {
         $group->get('/clientes', [ClienteController::class, 'listar']);
         $group->post('/createcliente', [ClienteController::class, 'crear']);
+        $group->get('/reservas', [ReservaController::class, 'listar']);
         $group->post('/validarrecurrencia', [ReservaController::class, 'validarRecurrencia']);
         $group->post('/confirmarreserva', [ReservaController::class, 'confirmarReserva']);
     });

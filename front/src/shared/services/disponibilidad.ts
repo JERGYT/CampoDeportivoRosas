@@ -14,17 +14,31 @@ import type {
   CronogramaResponse,
   ListarEspaciosResponse,
 } from './types';
+export interface Espacio {
+  id: number;
+  nombre: string;
+  tipo?: string;
+  capacidad?: number;
+  estado?: string;
+  [key: string]: any;
+}
 
 export interface DisponibilidadService {
+  
   listarEspacios(): Promise<ListarEspaciosResponse>;
   consultar(params: ConsultarDisponibilidadParams): Promise<ConsultarDisponibilidadResponse>;
   cronograma(params: CronogramaParams): Promise<CronogramaResponse>;
   bloquear(body: BloquearRequest): Promise<BloquearResponse>;
+  obtenerEspacios(): Promise<Espacio[]>;
 }
 
 const base = () => apiConfig.disponibilidadUrl;
 
 const api: DisponibilidadService = {
+  obtenerEspacios: async () => {
+  const res = await request<{ status: string; espacios: Espacio[] }>(base(), '/view/espacios');
+  return res.espacios || [];
+  },
   listarEspacios: () => request(base(), '/view/espacios'),
   consultar: (params) => request(base(), '/view/consultar', { query: { ...params } }),
   cronograma: (params) => request(base(), '/view/cronograma', { query: { ...params } }),
@@ -40,6 +54,14 @@ export function estaDisponible(espacioId: number, fecha: string, horaInicio: str
 }
 
 const mock: DisponibilidadService = {
+  async obtenerEspacios() {
+  return [
+    { id: 1, nombre: 'Cancha Sintética Fútbol 8' },
+    { id: 2, nombre: 'Pistas de Tejo Tradicional' },
+    { id: 3, nombre: 'Salón de Eventos Principal' },
+    { id: 4, nombre: 'Zona BBQ Los Rosas' },
+  ] as any;
+},
   async listarEspacios() {
     await delay();
     return { status: 'success', espacios: espacios.filter((e) => e.estado === 'ACTIVO') };
@@ -68,4 +90,4 @@ const mock: DisponibilidadService = {
   },
 };
 
-export const disponibilidadService: DisponibilidadService = apiConfig.useMocks ? mock : api;
+export const disponibilidadService: DisponibilidadService = api;

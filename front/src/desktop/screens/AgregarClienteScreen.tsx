@@ -45,9 +45,9 @@ const REGLAS: Record<Perfil, { titulo: string; texto: string; habilitados: boole
 };
 
 export default function AgregarClienteScreen() {
-  const [nombre, setNombre] = useState('Liga Juvenil Boyacá');
-  const [telefono, setTelefono] = useState('3154443322');
-  const [correo, setCorreo] = useState('liga@boyaca.example');
+  const [nombre, setNombre] = useState('');
+  const [telefono, setTelefono] = useState('');
+  const [correo, setCorreo] = useState('');
   const [tipo, setTipo] = useState<Perfil>('ESCUELA_FORMACION');
   const [guardando, setGuardando] = useState(false);
   const [resultado, setResultado] = useState<{ ok: boolean; mensaje: string } | null>(null);

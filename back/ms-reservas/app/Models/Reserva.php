@@ -19,6 +19,10 @@ class Reserva extends Model {
         'estado'
     ];
 
+    public function cliente() {
+        return $this->belongsTo(Cliente::class, 'cliente_id');
+    }
+
     public function validarDiaPermitido() {
         $diaSemana = (int)date('N', strtotime($this->fecha));
 

@@ -30,7 +30,10 @@ class DisponibilidadController {
             "fecha" => $fecha,
             "hora_inicio" => $horaInicio,
             "hora_fin" => $horaFin,
-            "disponible" => $disponible
+            "disponible" => $disponible,
+            "mensaje" => $disponible 
+                ? "Horario disponible" 
+                : "La franja de {$horaInicio} a {$horaFin} no se encuentra disponible."
         ]);
 
         $response->getBody()->write($payload);
