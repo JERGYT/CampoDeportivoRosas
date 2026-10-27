@@ -1,13 +1,10 @@
-
-import { router, type Href } from 'expo-router';
+import { router } from 'expo-router';
 import { View } from 'react-native';
 import { useState, useMemo, useEffect } from 'react';
 import { reservasService } from '../../shared/services/reservas';
-
-import { disponibilidadService, type Espacio } from '@/shared/services';
-import { colors } from '@/shared/theme/tokens';
-import { formatCOP } from '@/shared/utils/format';
-
+import { disponibilidadService, type Espacio } from '../../shared/services/disponibilidad';
+import { colors } from '../../shared/theme/tokens';
+import { formatCOP } from '../../shared/utils/format';
 import { TitleBar, TwoColumns } from '../components/composites';
 import { DateRangeField } from '../components/DatePicker';
 import {
@@ -25,14 +22,13 @@ import {
   Table,
   Timeline,
 } from '../components/ui';
-import { historialR1048, listadoReservas, type FilaReserva } from '../data/demo';
+import { historialR1048, listadoReservas } from '../data/demo';
 import { routes } from '../navigation';
 
 const ESTADOS = ['Confirmada', 'Completada', 'Cancelada', 'Recibida', 'Finalizado'];
 
-/** Acciones del detalle según el estado de la reserva seleccionada. */
-function accionesPara(fila: FilaReserva): { primaria: [string, Href]; secundaria?: [string, Href]; nota: string } {
-  switch (fila.estado) {
+function accionesPara(fila: any) {
+  switch (fila?.estado) {
     case 'Confirmada':
       return {
         primaria: ['Validar y entregar espacio', routes.entrega],
@@ -40,39 +36,49 @@ function accionesPara(fila: FilaReserva): { primaria: [string, Href]; secundaria
         nota: 'La reserva está confirmada: puede entregarse tras validar. La cancelación solo la gestiona el administrador.',
       };
     case 'Recibida':
-      return { primaria: ['Liquidar reserva', routes.liquidacion], nota: 'El espacio ya fue recibido: falta la liquidación y el pago final.' };
+      return {
+        primaria: ['Liquidar reserva', routes.liquidacion],
+        nota: 'El espacio ya fue recibido: falta la liquidación y el pago final.',
+      };
     case 'Cancelada':
       return {
         primaria: ['Gestionar devolución', routes.devolucion],
         secundaria: ['Ver auditoría de cancelación', routes.cancelacionCompletada],
-        nota: 'La reserva fue cancelada y el horario liberado. La devolución conserva su propio estado.',
+        nota: 'La reserva fue cancelada y el horario liberado.',
       };
     case 'Completada':
-      return { primaria: ['Ver liquidación', routes.liquidacion], nota: 'Reserva cerrada con saldo $0.' };
+      return {
+        primaria: ['Ver liquidación', routes.liquidacion],
+        nota: 'Reserva cerrada con saldo $0.',
+      };
     default:
-      return { primaria: ['Nueva reserva', routes.nuevaReserva], nota: 'Consulta sin reserva: no hay franja, cobro ni penalidad.' };
+      return {
+        primaria: ['Nueva reserva', routes.nuevaReserva],
+        nota: 'Consulta sin reserva: no hay franja, cobro ni penalidad.',
+      };
   }
 }
-const filaVacia: FilaReserva = {
+
+const filaVacia: any = {
   ref: '---',
   cliente: 'Sin reservas',
-  espacio: '---',
   espacioId: 0,
   fecha: '---',
   estado: 'Confirmada',
   linea1: 'Sin registros',
-  linea2: 'No hay reservas disponibles',
-  estadoDetalle: '',
+  linea2: 'No hay reservas registradas',
+  estadoDetalle: 'Sin registros',
   saldo: '$0',
   detalle: {
     nombre: 'Sin reservas en BD',
-    perfil: '---',
+    perfil: 'Particular',
     fecha: '---',
     contacto: '---',
     telefono: '---',
     correo: '---',
     alquiler: 0,
     anticipo: 0,
+    notaPago: 'Sin movimientos registrados.',
   },
 };
 
@@ -83,40 +89,35 @@ export default function GestionReservasScreen() {
   const [rango, setRango] = useState<{ desde: string; hasta: string }>({ desde: '', hasta: '' });
   const [texto, setTexto] = useState('');
   const [filtros, setFiltros] = useState({ estado: 'todos', espacio: 0, desde: '', hasta: '', texto: '' });
-  const [seleccion, setSeleccion] = useState('R-1048');
+  const [seleccion, setSeleccion] = useState<string>('');
 
-  // Estado para las reservas que vienen de la base de datos MySQL
-  // Estado para las reservas reales y estado de carga
   const [reservasBD, setReservasBD] = useState<any[]>([]);
   const [cargando, setCargando] = useState(true);
 
-  // Cargar reservas y espacios de MySQL al entrar
+  // Carga inicial desde MySQL
   useEffect(() => {
     reservasService
       .listarReservas()
-      .then((res) => {
-        if (res && res.reservas) {
+      .then((res: any) => {
+        if (res && res.reservas && res.reservas.length > 0) {
           setReservasBD(res.reservas);
-          if (res.reservas.length > 0) {
-            setSeleccion(`R-${String(res.reservas[0].id).padStart(4, '0')}`);
-          }
+          setSeleccion(`R-${String(res.reservas[0].id).padStart(4, '0')}`);
         }
       })
       .catch((err) => console.error('Error al cargar reservas:', err))
       .finally(() => setCargando(false));
 
-    fetch('http://localhost/CampoDeportivoRosas/back/ms-disponibilidad/public/index.php/view/espacios')
-      .then((r) => r.json())
-      .then((data) => {
-        if (data?.espacios) setEspacios(data.espacios);
+    disponibilidadService
+      .obtenerEspacios()
+      .then((esp) => {
+        if (esp && esp.length > 0) setEspacios(esp);
       })
       .catch(() => {});
   }, []);
 
-  // Adaptar las reservas de MySQL (NUNCA usa listadoReservas)
   const reservasAdaptadas = useMemo(() => {
     if (!reservasBD || reservasBD.length === 0) {
-      return []; // Devuelve arreglo vacío mientras carga o si no hay filas
+      return [];
     }
 
     const mapaEspacios: Record<number, string> = {
@@ -133,6 +134,7 @@ export default function GestionReservasScreen() {
       const anticipoNum = parseFloat(r.anticipo) || 0;
       const alquilerNum = 120000;
       const saldoNum = Math.max(0, alquilerNum - anticipoNum);
+      const conAnticipo = anticipoNum > 0;
       const hIni = (r.hora_inicio || '').slice(0, 5);
       const hFin = (r.hora_fin || '').slice(0, 5);
 
@@ -143,27 +145,32 @@ export default function GestionReservasScreen() {
         fecha: r.fecha,
         estado: r.estado === 'CONFIRMADA' ? 'Confirmada' : (r.estado || 'Confirmada'),
         linea1: `${espacioNombre} · ${r.fecha}`,
-        linea2: `${hIni} – ${hFin}`,
-        estadoDetalle: anticipoNum > 0 ? 'Con anticipo' : 'Sin anticipo',
+        linea2: `${hIni} - ${hFin}`,
+        // Distinción visual HU-08 vs HU-09 en la tabla
+        estadoDetalle: conAnticipo ? 'Con anticipo' : 'Sin anticipo (100% pendiente)',
         saldo: formatCOP(saldoNum),
         detalle: {
           nombre: nombreCliente,
-          perfil: r.tipo || 'Particular',
-          fecha: `${espacioNombre} · ${r.fecha} · ${hIni} – ${hFin}`,
+          perfil: r.tipo || r.cliente?.tipo || 'Particular',
+          fecha: `${espacioNombre} · ${r.fecha} · ${hIni} - ${hFin}`,
           contacto: nombreCliente,
           telefono: r.cliente?.telefono || 'Sin teléfono',
           correo: r.cliente?.correo || 'Sin correo',
           alquiler: alquilerNum,
           anticipo: anticipoNum,
+          // Constancia formal según HU-08 o HU-09
+          notaPago: conAnticipo
+            ? `Reserva asegurada con anticipo de ${formatCOP(anticipoNum)}. Saldo restante: ${formatCOP(saldoNum)}.`
+            : `Constancia: Sin anticipo registrado. Saldo pendiente total de ${formatCOP(saldoNum)} por liquidar.`,
         },
-      } as FilaReserva;
+      } as any;
     });
   }, [reservasBD]);
 
-  // Filtrado sobre reservas reales
+  // Filtrado reactivo de las filas
   const filas = useMemo(
     () =>
-      reservasAdaptadas.filter((f) => {
+      reservasAdaptadas.filter((f: any) => {
         const q = filtros.texto.trim().toLowerCase();
         return (
           (filtros.estado === 'todos' || f.estado === filtros.estado) &&
@@ -176,8 +183,7 @@ export default function GestionReservasScreen() {
     [filtros, reservasAdaptadas],
   );
 
-  // Reserva seleccionada para el detalle derecho
-  const actual = reservasAdaptadas.find((f) => f.ref === seleccion) ?? reservasAdaptadas[0] ?? filaVacia;
+  const actual = reservasAdaptadas.find((f: any) => f.ref === seleccion) ?? reservasAdaptadas[0] ?? filaVacia;
   const acciones = accionesPara(actual);
 
   const limpiar = () => {
@@ -192,11 +198,12 @@ export default function GestionReservasScreen() {
     <>
       <TitleBar
         title="Gestión de reservas"
-        subtitle="Consulta reservas pactadas y distingue las consultas que terminaron sin reservar."
+        subtitle="Consulta reservas pactadas, anticipos asegurados y constancias de saldo pendiente."
       />
 
-      <Card title="Buscar y filtrar" style={{ zIndex: 10 }}>
-        <Row gap={16}>
+      <Card title="Buscar y filtrar" style={{ zIndex: 50, elevation: 50, overflow: 'visible' }}>
+        {/* Fila 1 con zIndex alto para que los desplegables floten por encima de los botones */}
+        <Row gap={16} style={{ zIndex: 60, elevation: 60, position: 'relative' }}>
           <SelectField
             label="Estado"
             value={estado}
@@ -226,7 +233,9 @@ export default function GestionReservasScreen() {
             style={{ flex: 1 }}
           />
         </Row>
-        <Row gap={16}>
+        
+        {/* Fila 2 con zIndex base */}
+        <Row gap={16} style={{ zIndex: 1, elevation: 1, position: 'relative', marginTop: 12 }}>
           <Chip label={`${filas.length} resultados`} />
           <Button label="Agregar cliente" variant="secondary" onPress={() => router.push(routes.agregarCliente)} />
           <View style={{ flex: 1 }} />
@@ -243,27 +252,29 @@ export default function GestionReservasScreen() {
                 columns={[
                   { title: 'Referencia / cliente', width: 210 },
                   { title: 'Espacio / fecha', width: 190 },
-                  { title: 'Estado', width: 170 },
+                  { title: 'Estado y Pago', width: 190 },
                   { title: 'Saldo · COP' },
                 ]}
-                rows={filas.map((f) => [
+                rows={filas.map((f: any) => [
                   [f.ref, f.cliente],
                   [f.linea1, f.linea2],
                   f.estadoDetalle ? [f.estado, f.estadoDetalle] : [f.estado],
                   f.saldo,
                 ])}
-                selected={filas.findIndex((f) => f.ref === seleccion)}
+                selected={filas.findIndex((f: any) => f.ref === seleccion)}
                 onSelect={(i) => setSeleccion(filas[i].ref)}
               />
               <Row gap={16}>
                 <View style={{ flex: 1 }} />
-                <Small>{cargando ? 'Cargando reservas...' : `Mostrando ${filas.length} de ${reservasAdaptadas.length}`}</Small>
+                <Small>
+                  {cargando ? 'Cargando reservas desde la base de datos...' : `Mostrando ${filas.length} de ${reservasAdaptadas.length}`}
+                </Small>
                 <Button label="< Anterior" variant="disabled" />
                 <Button label="Siguiente >" variant="disabled" />
               </Row>
             </Card>
-            <Notice title="Finalizado sin reserva ≠ cancelación">
-              C-0081: el cliente rechazó las alternativas de una consulta. No se creó ni bloqueó reserva; no hay cobro, multa ni penalidad.
+            <Notice title="Reglas financieras">
+              Las reservas con anticipo aseguran la disponibilidad de franja. Las reservas sin anticipo se confirman dejando constancia del 100% del saldo pendiente para cobro en recepción.
             </Notice>
             <Small>
               Escuela: lunes–sábado, sin domingo. Campeonato/Particular: sábado–domingo. Sábado disponible para ambos, sin prioridad.
@@ -289,21 +300,28 @@ export default function GestionReservasScreen() {
                 {actual.detalle.telefono} · {actual.detalle.correo}
               </T>
               <Divider />
-              <Chip label="Tarifa · COP" />
-              <DataRow label="Alquiler" value={formatCOP(actual.detalle.alquiler)} />
+              <Chip label="Liquidación y Anticipo" />
+              <DataRow label="Alquiler total" value={formatCOP(actual.detalle.alquiler)} />
               <DataRow label="Anticipo registrado" value={formatCOP(-actual.detalle.anticipo)} />
-              <DataRow big label="Saldo de servicio" value={formatCOP(actual.detalle.alquiler - actual.detalle.anticipo)} />
-              <Small>Antes de recepción y valoración de daños. Moneda asumida COP.</Small>
-              <Button label={acciones.primaria[0]} onPress={() => router.push(acciones.primaria[1])} />
+              <DataRow big label="Saldo pendiente" value={formatCOP(actual.detalle.alquiler - actual.detalle.anticipo)} />
+              
+              {/* Bloque de constancia explícita HU-08 / HU-09 */}
+              <View style={{ padding: 10, backgroundColor: '#F3F4F6', borderRadius: 6, marginVertical: 8 }}>
+                <T size={12} weight="semibold" color="#374151">Constancia de liquidación:</T>
+                <T size={12} color="#4B5563">{actual.detalle.notaPago}</T>
+              </View>
+
+              <Button label={acciones.primaria[0]} onPress={() => router.push(acciones.primaria[1] as any)} />
               {acciones.secundaria ? (
                 <Button
                   label={acciones.secundaria[0]}
                   variant="secondary"
-                  onPress={() => router.push(acciones.secundaria![1])}
+                  onPress={() => router.push(acciones.secundaria![1] as any)}
                 />
               ) : null}
               <Small>{acciones.nota}</Small>
             </Card>
+
             <Card title="Historial de la reserva">
               <Timeline
                 events={
@@ -311,8 +329,12 @@ export default function GestionReservasScreen() {
                     ? historialR1048
                     : [
                         {
-                          title: 'Consulta de detalle · Reciente',
-                          detail: 'Registro sincronizado desde la base de datos.',
+                          title: `Estado: ${actual.estado}`,
+                          detail: actual.detalle.notaPago,
+                        },
+                        {
+                          title: 'Registro en MySQL',
+                          detail: 'Sincronizado con microservicio ms-reservas y ms-disponibilidad.',
                         },
                       ]
                 }

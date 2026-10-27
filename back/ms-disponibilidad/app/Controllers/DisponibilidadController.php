@@ -18,6 +18,7 @@ class DisponibilidadController {
         $fecha = $params['fecha'] ?? null;
         $horaInicio = $params['hora_inicio'] ?? null;
         $horaFin = $params['hora_fin'] ?? null;
+        $tipo = $params['tipo'] ?? null;
 
         if (!$espacioId || !$fecha || !$horaInicio || !$horaFin) {
             $response->getBody()->write(json_encode(["status" => "error", "mensaje" => "Faltan parámetros de consulta"]));
@@ -25,6 +26,12 @@ class DisponibilidadController {
         }
 
         $disponible = $this->repository->consultarDisponibilidad($espacioId, $fecha, $horaInicio, $horaFin);
+        
+        $sugerencias = [];
+        if (!$disponible) {
+            $sugerencias = $this->repository->sugerirAlternativas($espacioId, $fecha, $horaInicio, $horaFin, $tipo);
+        }
+
         $payload = json_encode([
             "espacio_id" => (int)$espacioId,
             "fecha" => $fecha,
@@ -33,7 +40,8 @@ class DisponibilidadController {
             "disponible" => $disponible,
             "mensaje" => $disponible 
                 ? "Horario disponible" 
-                : "La franja de {$horaInicio} a {$horaFin} no se encuentra disponible."
+                : "La franja de " . substr($horaInicio, 0, 5) . " a " . substr($horaFin, 0, 5) . " no se encuentra disponible.",
+            "sugerencias" => $sugerencias
         ]);
 
         $response->getBody()->write($payload);

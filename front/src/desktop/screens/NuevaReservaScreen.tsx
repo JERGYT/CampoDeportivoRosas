@@ -1,150 +1,151 @@
-/**
- * Nueva reserva (botón "Reservar" del menú). No tiene mockup desktop propio: se arma con el
- * mismo sistema de diseño para cubrir los endpoints de reserva de la rama back:
- *   GET  /view/clientes, /view/espacios, /view/consultar, /view/cronograma
- *   POST /view/validarrecurrencia, /view/confirmarreserva
- */
-import { useEffect, useMemo, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { View } from 'react-native';
-
-import {
-  ApiError,
-  disponibilidadService,
-  reservasService,
-  type Cliente,
-  type Espacio,
-  type SesionValidada,
-  type TipoCliente,
-} from '@/shared/services';
-import { colors } from '@/shared/theme/tokens';
-import { formatFecha, shortTime, toBackTime } from '@/shared/utils/format';
-
 import { TitleBar, TwoColumns } from '../components/composites';
-import { DateField, MultiDateField } from '../components/DatePicker';
-import { Cronograma } from '../components/Cronograma';
-import { Button, Card, Chip, Field, Notice, Row, SelectField, Small, T, Table } from '../components/ui';
+import { Button, Card, Field, SelectField, T, Divider, Chip, Row } from '../components/ui';
+import { DateTimeField } from '../components/DatePicker';
+import { disponibilidadService, type Espacio } from '../../shared/services/disponibilidad';
+import { reservasService } from '../../shared/services/reservas';
 
-const PERFIL: Record<TipoCliente, string> = {
-  ESCUELA_FORMACION: 'Escuela de Formación',
-  CAMPEONATO: 'Campeonato',
-  PARTICULAR: 'Particular',
-  OCASIONAL: 'Ocasional',
-};
-const REGLA: Record<TipoCliente, string> = {
-  ESCUELA_FORMACION: 'Lunes a sábado. Los domingos no están habilitados.',
-  CAMPEONATO: 'Sábado y domingo.',
-  PARTICULAR: 'Sábado y domingo.',
-  OCASIONAL: 'Cualquier día de la semana.',
-};
-const ESTADO_SESION = { DISPONIBLE: 'Disponible', CRUCE_HORARIO: 'Cruce de horario', NO_PERMITIDO: 'Día no permitido' } as const;
-
-type Aviso = { tone: 'success' | 'danger' | 'info'; title: string; text: string } | null;
-
-/** Lunes y domingo de la semana de una fecha YYYY-MM-DD. */
-function semanaDe(fecha: string): { desde: string; hasta: string } {
-  const d = new Date(`${fecha}T00:00:00Z`);
-  if (Number.isNaN(d.getTime())) return { desde: fecha, hasta: fecha };
-  const dia = d.getUTCDay() === 0 ? 7 : d.getUTCDay();
-  const lunes = new Date(d.getTime() - (dia - 1) * 86400000);
-  const domingo = new Date(lunes.getTime() + 6 * 86400000);
-  return { desde: lunes.toISOString().slice(0, 10), hasta: domingo.toISOString().slice(0, 10) };
+function AlertBox({ tone, title, description }: { tone: 'success' | 'danger'; title: string; description: string }) {
+  const isSuccess = tone === 'success';
+  return (
+    <View
+      style={{
+        padding: 14,
+        borderRadius: 8,
+        borderWidth: 1,
+        backgroundColor: isSuccess ? '#ECFDF5' : '#FEF2F2',
+        borderColor: isSuccess ? '#10B981' : '#EF4444',
+        marginVertical: 8,
+      }}
+    >
+      <T weight="semibold" style={{ color: isSuccess ? '#065F46' : '#991B1B', marginBottom: 4 }}>
+        {isSuccess ? '✓ ' : 'ⓘ '} {title}
+      </T>
+      <T size={13} style={{ color: isSuccess ? '#047857' : '#B91C1C' }}>
+        {description}
+      </T>
+    </View>
+  );
 }
 
 export default function NuevaReservaScreen() {
-  const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [clientes, setClientes] = useState<any[]>([]);
   const [espacios, setEspacios] = useState<Espacio[]>([]);
-  const [clienteId, setClienteId] = useState(2);
-  const [espacioId, setEspacioId] = useState(1);
+  const [clienteId, setClienteId] = useState<number>(0);
+  const [espacioId, setEspacioId] = useState<number>(1);
   const [entidad, setEntidad] = useState('');
+
+  // Estados vacíos por defecto (sin datos automáticos quemados)
   const [fecha, setFecha] = useState('');
   const [horaInicio, setHoraInicio] = useState('');
   const [horaFin, setHoraFin] = useState('');
   const [anticipo, setAnticipo] = useState('');
-  const [aviso, setAviso] = useState<Aviso>(null);
-  const [cargando, setCargando] = useState<'consultar' | 'confirmar' | 'recurrencia' | null>(null);
-  const [fechasRecurrentes, setFechasRecurrentes] = useState<string[]>(['2026-10-24', '2026-10-25', '2026-10-31']);
-  const [sesiones, setSesiones] = useState<SesionValidada[] | null>(null);
-  const [version, setVersion] = useState(0);
+
+  const [disponible, setDisponible] = useState<boolean | null>(null);
+  const [consultando, setConsultando] = useState(false);
+  const [confirmando, setConfirmando] = useState(false);
+  const [mensajeResultado, setMensajeResultado] = useState<string | null>(null);
+  const [esError, setEsError] = useState(false);
+
+  // HU-06: Sugerencias alternativas
+  const [sugerencias, setSugerencias] = useState<any[]>([]);
 
   useEffect(() => {
-    reservasService.listarClientes().then((r) => setClientes(r.clientes)).catch(() => setClientes([]));
-    disponibilidadService.listarEspacios().then((r) => setEspacios(r.espacios)).catch(() => setEspacios([]));
+    reservasService.listarClientes().then((r) => {
+      if (r?.clientes && r.clientes.length > 0) {
+        setClientes(r.clientes);
+        setClienteId(r.clientes[0].id);
+      }
+    });
+
+    disponibilidadService.obtenerEspacios().then((esp) => {
+      if (esp && esp.length > 0) {
+        setEspacios(esp);
+        setEspacioId(esp[0].id);
+      }
+    });
   }, []);
 
-  const cliente = clientes.find((c) => c.id === clienteId);
-  const tipo: TipoCliente = cliente?.tipo ?? 'PARTICULAR';
-  const semana = useMemo(() => semanaDe(fecha), [fecha]);
-  const fechaValida = /^\d{4}-\d{2}-\d{2}$/.test(fecha);
+  const clienteSeleccionado = clientes.find((c) => c.id === clienteId);
+  const tipoCliente = clienteSeleccionado?.tipo || 'PARTICULAR';
 
-  const errorDe = (e: unknown) => (e instanceof ApiError ? e.message : 'Ocurrió un error inesperado');
+  const onConsultar = async () => {
+    if (!fecha || !horaInicio || !horaFin) {
+      setEsError(true);
+      setMensajeResultado('Por favor selecciona una fecha y escribe hora de inicio y hora de fin.');
+      return;
+    }
 
-  // GET /view/consultar (ms-disponibilidad)
-  const consultar = async () => {
-    setCargando('consultar');
-    setAviso(null);
+    setConsultando(true);
+    setMensajeResultado(null);
+    setSugerencias([]);
     try {
-      const r = await disponibilidadService.consultar({
+      const hIni = horaInicio.length === 5 ? `${horaInicio}:00` : horaInicio;
+      const hFin = horaFin.length === 5 ? `${horaFin}:00` : horaFin;
+
+      const res: any = await disponibilidadService.consultar({
         espacio_id: espacioId,
         fecha,
-        hora_inicio: toBackTime(horaInicio),
-        hora_fin: toBackTime(horaFin),
+        hora_inicio: hIni,
+        hora_fin: hFin,
+        tipo: tipoCliente,
       });
-      setAviso(
-        r.disponible
-          ? { tone: 'success', title: 'Franja disponible', text: `${formatFecha(r.fecha)} · ${shortTime(r.hora_inicio)} – ${shortTime(r.hora_fin)}` }
-          : { tone: 'danger', title: 'Franja no disponible', text: `La franja de ${shortTime(r.hora_inicio)} a ${shortTime(r.hora_fin)} está ocupada o fuera del horario de atención.` },
-      );
-    } catch (e) {
-      setAviso({ tone: 'danger', title: 'No se pudo consultar', text: errorDe(e) });
+
+      setDisponible(res.disponible);
+      if (!res.disponible && res.sugerencias && res.sugerencias.length > 0) {
+        setSugerencias(res.sugerencias);
+      }
+    } catch (err: any) {
+      console.error(err);
+      setDisponible(false);
     } finally {
-      setCargando(null);
+      setConsultando(false);
     }
   };
 
-  // POST /view/confirmarreserva (ms-reservas) — 400 cliente inexistente / día no permitido, 409 cruce
-  const confirmar = async () => {
-    setCargando('confirmar');
-    setAviso(null);
+  const onConfirmar = async () => {
+    if (!fecha || !horaInicio || !horaFin) {
+      setEsError(true);
+      setMensajeResultado('Por favor completa la fecha y las horas antes de confirmar.');
+      return;
+    }
+
+    setConfirmando(true);
+    setMensajeResultado(null);
+    setEsError(false);
     try {
-      const r = await reservasService.confirmarReserva({
+      const anticipoNum = parseFloat(anticipo) || 0;
+      const hIni = horaInicio.length === 5 ? `${horaInicio}:00` : horaInicio;
+      const hFin = horaFin.length === 5 ? `${horaFin}:00` : horaFin;
+
+      if (anticipoNum > 120000) {
+        setEsError(true);
+        setMensajeResultado('El anticipo no puede ser superior al costo total del alquiler ($120.000 COP).');
+        setConfirmando(false);
+        return;
+      }
+
+      const res: any = await reservasService.confirmarReserva({
         espacio_id: espacioId,
         cliente_id: clienteId,
-        tipo,
-        entidad_organizadora: entidad.trim() || null,
+        tipo: tipoCliente,
+        entidad_organizadora: entidad,
         fecha,
-        hora_inicio: toBackTime(horaInicio),
-        hora_fin: toBackTime(horaFin),
-        anticipo: Number(anticipo.replace(/[^\d.]/g, '')) || 0,
+        hora_inicio: hIni,
+        hora_fin: hFin,
+        anticipo: anticipoNum,
       });
-      setAviso({
-        tone: 'success',
-        title: `${r.mensaje} · R-${r.reserva_id}`,
-        text: r.bloqueo_sincronizado ? 'La franja quedó bloqueada en el cronograma del espacio.' : 'La reserva se guardó, pero el bloqueo no se sincronizó.',
-      });
-      setVersion((v) => v + 1);
-    } catch (e) {
-      const status = e instanceof ApiError ? e.status : 0;
-      setAviso({ tone: 'danger', title: status === 409 ? 'Cruce de horario' : 'No se pudo confirmar', text: errorDe(e) });
-    } finally {
-      setCargando(null);
-    }
-  };
 
-  // POST /view/validarrecurrencia (ms-reservas)
-  const validarRecurrencia = async () => {
-    setCargando('recurrencia');
-    setSesiones(null);
-    try {
-      const r = await reservasService.validarRecurrencia({
-        espacio_id: espacioId,
-        tipo,
-        sesiones: fechasRecurrentes.map((f) => ({ fecha: f, hora_inicio: toBackTime(horaInicio), hora_fin: toBackTime(horaFin) })),
-      });
-      setSesiones(r.sesiones);
-    } catch (e) {
-      setAviso({ tone: 'danger', title: 'No se pudo validar la recurrencia', text: errorDe(e) });
+      setEsError(false);
+      setMensajeResultado(res.mensaje);
+      setDisponible(null);
+      setSugerencias([]);
+    } catch (err: any) {
+      setEsError(true);
+      setMensajeResultado(err.message || 'Error al confirmar la reserva.');
     } finally {
-      setCargando(null);
+      setConfirmando(false);
     }
   };
 
@@ -152,85 +153,167 @@ export default function NuevaReservaScreen() {
     <>
       <TitleBar
         title="Nueva reserva"
-        subtitle="Elige cliente, espacio y franja; consulta la disponibilidad y confirma la reserva."
+        subtitle="Elige cliente, espacio y franja; consulta disponibilidad y confirma la reserva con o sin anticipo."
       />
+
       <TwoColumns
         main={
-          <>
-            <Card title="Datos de la reserva" style={{ zIndex: 10 }}>
-              <Row gap={16} style={{ zIndex: 10 }}>
-                <SelectField
-                  label="Cliente"
-                  value={clienteId}
-                  onChange={setClienteId}
-                  options={clientes.map((c) => ({ label: c.nombre, value: c.id }))}
-                  style={{ flex: 1 }}
-                />
-                <SelectField
-                  label="Espacio"
-                  value={espacioId}
-                  onChange={setEspacioId}
-                  options={espacios.map((e) => ({ label: e.nombre, value: e.id }))}
-                  style={{ flex: 1 }}
-                />
-              </Row>
-              <Field label="Entidad organizadora · opcional" value={entidad} onChangeText={setEntidad} />
-              <Row gap={16}>
-                <DateField label="Fecha" value={fecha} onChange={setFecha} style={{ flex: 1 }} />
-                <Field label="Hora de inicio" value={horaInicio} onChangeText={setHoraInicio} style={{ flex: 1 }} />
-                <Field label="Hora de fin" value={horaFin} onChangeText={setHoraFin} style={{ flex: 1 }} />
-                <Field label="Anticipo · COP" value={anticipo} onChangeText={setAnticipo} keyboardType="numeric" style={{ flex: 1 }} />
-              </Row>
-              <Small>El anticipo es opcional: vacío o 0 es válido.</Small>
-              {aviso ? (
-                <Notice tone={aviso.tone} title={aviso.title}>
-                  {aviso.text}
-                </Notice>
-              ) : null}
-              <Row gap={12}>
-                <Button label="Consultar disponibilidad" variant="secondary" loading={cargando === 'consultar'} onPress={consultar} />
-                <Button label="Confirmar reserva" loading={cargando === 'confirmar'} onPress={confirmar} />
-              </Row>
-            </Card>
-
-            <Card title="Reserva recurrente" badge={<Chip label="Varias sesiones" />}>
-              <MultiDateField
-                label="Fechas de las sesiones"
-                values={fechasRecurrentes}
-                onChange={setFechasRecurrentes}
-                helper="Usa el mismo espacio, cliente y franja de arriba."
+          <Card title="Datos de la reserva" style={{ overflow: 'visible' }}>
+            {/* Fila 1: zIndex alto para que los desplegables no queden tapados por las filas de abajo */}
+            <Row gap={16} style={{ zIndex: 100, elevation: 100, position: 'relative' }}>
+              <SelectField
+                label="Cliente"
+                value={clienteId}
+                onChange={(val) => setClienteId(Number(val))}
+                options={clientes.map((c) => ({ label: `${c.nombre} (${c.tipo})`, value: c.id }))}
+                style={{ flex: 1 }}
               />
-              <Button label="Validar recurrencia" variant="secondary" loading={cargando === 'recurrencia'} onPress={validarRecurrencia} />
-              {sesiones ? (
-                <Table
-                  columns={[{ title: 'Fecha' }, { title: 'Franja' }, { title: 'Resultado' }]}
-                  rows={sesiones.map((s) => [
-                    formatFecha(s.fecha),
-                    `${shortTime(s.hora_inicio)} – ${shortTime(s.hora_fin)}`,
-                    s.mensaje ? [ESTADO_SESION[s.estado], s.mensaje] : [ESTADO_SESION[s.estado]],
-                  ])}
+              <SelectField
+                label="Espacio"
+                value={espacioId}
+                onChange={(val) => setEspacioId(Number(val))}
+                options={espacios.map((e) => ({ label: e.nombre, value: e.id }))}
+                style={{ flex: 1 }}
+              />
+            </Row>
+
+            {/* Fila 2: zIndex intermedio */}
+            <View style={{ zIndex: 50, elevation: 50, position: 'relative', marginTop: 14 }}>
+              <Field
+                label="Entidad organizadora · opcional"
+                value={entidad}
+                onChangeText={setEntidad}
+                placeholder="Nombre del torneo o institución"
+              />
+            </View>
+
+            {/* Fila 3: DateTimeField con selector de fecha funcional */}
+            <Row gap={16} style={{ zIndex: 10, elevation: 10, position: 'relative', marginTop: 14 }}>
+              <DateTimeField
+                label="Fecha"
+                fecha={fecha}
+                hora={horaInicio || ''}
+                onChange={(nuevaFecha: string, nuevaHora?: string) => {
+                  setFecha(nuevaFecha);
+                  if (nuevaHora && nuevaHora.trim()) {
+                    setHoraInicio(nuevaHora.trim());
+                  }
+                }}
+                style={{ flex: 1.2 }}
+              />
+              <Field
+                label="Hora de inicio"
+                value={horaInicio}
+                onChangeText={setHoraInicio}
+                placeholder="Ej: 14:00"
+                style={{ flex: 1 }}
+              />
+              <Field
+                label="Hora de fin"
+                value={horaFin}
+                onChangeText={setHoraFin}
+                placeholder="Ej: 16:00"
+                style={{ flex: 1 }}
+              />
+              <Field
+                label="Anticipo · COP"
+                value={anticipo}
+                onChangeText={setAnticipo}
+                placeholder="0"
+                style={{ flex: 1 }}
+              />
+            </Row>
+            <T size={12} color="#6B7280" style={{ marginTop: 4, marginBottom: 12 }}>
+              El anticipo es opcional: vacío o 0 confirma la reserva dejando constancia del saldo pendiente.
+            </T>
+
+            {/* Alerta de disponibilidad */}
+            {disponible === true && (
+              <AlertBox
+                tone="success"
+                title="Franja disponible"
+                description={`El horario seleccionado (${horaInicio} – ${horaFin}) está libre para reservar.`}
+              />
+            )}
+
+            {disponible === false && (
+              <View style={{ gap: 10 }}>
+                <AlertBox
+                  tone="danger"
+                  title="Franja no disponible"
+                  description={`La franja de ${horaInicio || '--:--'} a ${horaFin || '--:--'} se encuentra ocupada o fuera del horario de atención.`}
                 />
-              ) : null}
-            </Card>
-          </>
+
+                {/* HU-06: Sugerencias y aceptación de alternativa */}
+                {sugerencias.length > 0 && (
+                  <View style={{ padding: 14, backgroundColor: '#FEF3C7', borderRadius: 8, borderWidth: 1, borderColor: '#F59E0B' }}>
+                    <T weight="semibold" style={{ color: '#92400E', marginBottom: 8 }}>
+                      💡 Alternativas sugeridas disponibles:
+                    </T>
+                    {sugerencias.map((sug, i) => (
+                      <Row key={i} gap={12} style={{ alignItems: 'center', marginBottom: 6 }}>
+                        <T size={13} style={{ flex: 1, color: '#78350F' }}>
+                          • {sug.descripcion}
+                        </T>
+                        <Button
+                          label="Aceptar alternativa"
+                          variant="secondary"
+                          onPress={() => {
+                            setFecha(sug.fecha);
+                            setHoraInicio(sug.hora_inicio.slice(0, 5));
+                            setHoraFin(sug.hora_fin.slice(0, 5));
+                            setDisponible(true);
+                            setSugerencias([]);
+                          }}
+                        />
+                      </Row>
+                    ))}
+                  </View>
+                )}
+              </View>
+            )}
+
+            {/* Mensajes de confirmación HU-08 / HU-09 */}
+            {mensajeResultado && (
+              <AlertBox
+                tone={esError ? 'danger' : 'success'}
+                title={esError ? 'Notificación' : 'Confirmación de reserva'}
+                description={mensajeResultado}
+              />
+            )}
+
+            <Divider />
+
+            <Row gap={16}>
+              <Button
+                label={consultando ? 'Consultando...' : 'Consultar disponibilidad'}
+                variant="secondary"
+                onPress={onConsultar}
+              />
+              <Button
+                label={confirmando ? 'Confirmando...' : 'Confirmar reserva'}
+                onPress={onConfirmar}
+              />
+            </Row>
+          </Card>
         }
         aside={
-          <>
-            <Card title="Regla del perfil" badge={<Chip label={PERFIL[tipo]} />}>
-              <T lh={1.45}>{REGLA[tipo]}</T>
-              <Small>Horario de atención de todos los espacios: lunes a domingo, 06:00 – 22:00.</Small>
-            </Card>
-            <Card title="Cronograma de la semana">
-              <T size={13} color={colors.textMuted} lh={1.45}>
-                {fechaValida ? `${formatFecha(semana.desde)} – ${formatFecha(semana.hasta)}` : 'Escribe una fecha válida'}
-              </T>
-              {fechaValida ? (
-                <View>
-                  <Cronograma espacioId={espacioId} desde={semana.desde} hasta={semana.hasta} version={version} />
-                </View>
-              ) : null}
-            </Card>
-          </>
+          <Card title="Regla del perfil" badge={<Chip label={tipoCliente} />}>
+            <T size={14} weight="semibold" lh={1.45}>
+              {tipoCliente === 'ESCUELA_FORMACION' ? 'Lunes a sábado' : 'Sábados y domingos'}
+            </T>
+            <T size={13} color="#6B7280" lh={1.45}>
+              Horario de atención general: lunes a domingo, 06:00 – 22:00.
+            </T>
+            <Divider />
+            <T size={14} weight="semibold">Condiciones de pago:</T>
+            <T size={13} color="#6B7280" lh={1.45}>
+              • Con anticipo: la reserva queda asegurada inmediatamente.
+            </T>
+            <T size={13} color="#6B7280" lh={1.45}>
+              • Sin anticipo: se confirma dejando constancia del saldo pendiente total.
+            </T>
+          </Card>
         }
       />
     </>

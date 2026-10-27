@@ -91,6 +91,14 @@ class ReservaController {
             return $response->withHeader('Content-Type', 'application/json')->withStatus(400);
         }
 
+        // HU-08 y HU-09: Normalizar y validar anticipo
+        $anticipo = isset($data['anticipo']) && is_numeric($data['anticipo']) ? floatval($data['anticipo']) : 0.0;
+        if ($anticipo < 0) {
+            $response->getBody()->write(json_encode(["status" => "error", "mensaje" => "El anticipo no puede ser negativo"]));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(400);
+        }
+        $data['anticipo'] = $anticipo;
+
         $reserva = new Reserva($data);
 
         if (!$reserva->validarDiaPermitido()) {
@@ -105,7 +113,7 @@ class ReservaController {
         if (!$disponible) {
             $response->getBody()->write(json_encode([
                 "status" => "error", 
-                "mensaje" => "La franja de {$reserva->horaInicio} a {$reserva->horaFin} no está disponible para reserva."
+                "mensaje" => "La franja de {$reserva->hora_inicio} a {$reserva->hora_fin} no está disponible."
             ]));
             return $response->withHeader('Content-Type', 'application/json')->withStatus(409);
         }
@@ -116,16 +124,31 @@ class ReservaController {
                 $reservaGuardada->espacio_id, $reservaGuardada->id, $reservaGuardada->fecha, $reservaGuardada->hora_inicio, $reservaGuardada->hora_fin, $reservaGuardada->tipo
             );
 
+            $alquilerTotal = 120000.00;
+            $saldoPendiente = max(0, $alquilerTotal - $anticipo);
+            $conAnticipo = $anticipo > 0;
+
+            if ($conAnticipo) {
+                $mensajeConstancia = "Reserva asegurada con anticipo de $" . number_format($anticipo, 0, ',', '.') . " COP. Saldo pendiente: $" . number_format($saldoPendiente, 0, ',', '.') . " COP.";
+            } else {
+                $mensajeConstancia = "Reserva confirmada sin anticipo. Constancia: Saldo pendiente total de $" . number_format($saldoPendiente, 0, ',', '.') . " COP a pagar antes del uso.";
+            }
+
             $response->getBody()->write(json_encode([
                 "status" => "success",
-                "mensaje" => "Reserva confirmada con éxito",
+                "mensaje" => $mensajeConstancia,
                 "reserva_id" => $reservaGuardada->id,
+                "codigo" => "R-" . str_pad($reservaGuardada->id, 4, "0", STR_PAD_LEFT),
+                "alquiler" => $alquilerTotal,
+                "anticipo" => $anticipo,
+                "saldo_pendiente" => $saldoPendiente,
+                "tiene_anticipo" => $conAnticipo,
                 "bloqueo_sincronizado" => $bloqueado
             ]));
             return $response->withHeader('Content-Type', 'application/json')->withStatus(201);
         }
 
-        $response->getBody()->write(json_encode(["status" => "error", "mensaje" => "No se pudo registrar"]));
+        $response->getBody()->write(json_encode(["status" => "error", "mensaje" => "No se pudo registrar la reserva"]));
         return $response->withHeader('Content-Type', 'application/json')->withStatus(500);
     }
 

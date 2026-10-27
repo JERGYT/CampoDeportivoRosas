@@ -277,7 +277,7 @@ export function DateTimeField({
 }) {
   const [open, setOpen] = useState(false);
   const [f, setF] = useState(fecha);
-  const [h, setH] = useState(hora);
+  const [h, setH] = useState(hora || '');
   const texto = esIso(fecha) ? `${formatFecha(fecha)}${hora ? ` · ${hora}` : ''}` : placeholder;
   return (
     <>
@@ -303,7 +303,7 @@ export function DateTimeField({
             label="Aplicar"
             variant={esIso(f) ? 'primary' : 'disabled'}
             onPress={() => {
-              onChange(f, h.trim());
+              onChange(f, (h || '').trim());
               setOpen(false);
             }}
           />
