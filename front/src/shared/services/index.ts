@@ -3,3 +3,4 @@ export { disponibilidadService } from './disponibilidad';
 export { ApiError } from './http';
 export { diaPermitido, reservasService } from './reservas';
 export * from './types';
+export { calcularValorTotal, valorHora } from './tarifas';

@@ -84,3 +84,25 @@ y reiniciar `npm run web`. No hay que cambiar ninguna pantalla.
 Los procesos de entrega, recepción, daños, liquidación, cancelación, devolución, reportes y el
 listado de reservas aún no tienen endpoint en el back; usan `src/desktop/data/demo.ts`. Cuando
 existan, se agrega su función al servicio correspondiente con el mismo patrón.
+
+## Sprint 2 · HU-06, HU-08 y HU-09
+
+Implementado en **Nueva reserva** (`/reservas/nueva`) y **Gestión de reservas** (`/reservas`):
+
+| HU | Qué hace el front | Dónde |
+|---|---|---|
+| HU-06 Fecha alternativa | Si la franja no está libre (consulta `disponible: false` o `409` al confirmar), se sugieren hasta 4 franjas libres de la misma duración, en días permitidos para el perfil. Al aceptar una se confirma esa franja; las demás quedan `RECHAZADA`. También se pueden rechazar todas (cierre sin reserva). | `components/FechasAlternativasPanel.tsx` |
+| HU-08 Anticipo | Confirmar con anticipo (monto, método, referencia y fecha; `0 < monto ≤ valor total`) y comprobante `A-xxxx`. En Gestión de reservas se puede registrar el anticipo de una reserva confirmada que no lo tenía. | `components/AnticipoForm.tsx` |
+| HU-09 Sin anticipo | Confirmar sin anticipo con fecha límite y observación; se emite la constancia de saldo `S-xxxx` con el saldo completo. | `components/ConstanciaSaldoCard.tsx` |
+
+- **Valor total** = valor por hora del espacio × horas (`shared/services/tarifas.ts`). Usa
+  `valor_hora` del espacio si el back lo devuelve; si no, una tabla por tipo de espacio.
+- **Qué es real y qué es simulado.** La reserva se confirma siempre con el back real
+  (`POST /view/confirmarreserva`, enviando el anticipo en su campo `anticipo`). Las alternativas
+  se calculan en el front con datos reales (`GET /view/cronograma` + horario 06:00–22:00).
+  Los endpoints propuestos en el Sprint 2 que el back todavía no tiene (`GET /view/alternativas`,
+  `POST /view/alternativas`, `POST /view/aceptaralternativa`, `POST /view/rechazaralternativas`,
+  `POST /view/anticipo`, `POST /view/confirmarsinanticipo`, `GET /view/pagos`) usan el mock tipado
+  `shared/services/mocks/sprint2.ts`, que guarda en el navegador (localStorage).
+- Cuando el back exponga esos endpoints, poner en `.env` `EXPO_PUBLIC_SPRINT2_API=true`: los
+  servicios pasan a llamarlos con los tipos de `types.ts`, sin cambiar pantallas.

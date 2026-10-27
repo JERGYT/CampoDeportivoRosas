@@ -1,15 +1,27 @@
-
+/**
+ * Gestión de reservas: listado real (GET /view/reservas) con detalle.
+ * Sprint 2: valor total por tarifa del espacio, anticipo o constancia de saldo de cada reserva
+ * (HU-08 / HU-09), registro de anticipo después de confirmar y alternativa aceptada (HU-06).
+ */
 import { router, type Href } from 'expo-router';
 import { View } from 'react-native';
-import { useState, useMemo, useEffect } from 'react';
-import { reservasService } from '../../shared/services/reservas';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 
-import { disponibilidadService, type Espacio } from '@/shared/services';
+import {
+  ApiError,
+  calcularValorTotal,
+  disponibilidadService,
+  reservasService,
+  type Espacio,
+  type PagoReserva,
+} from '@/shared/services';
 import { colors } from '@/shared/theme/tokens';
-import { formatCOP } from '@/shared/utils/format';
+import { formatCOP, formatFecha, shortTime } from '@/shared/utils/format';
 
+import { AnticipoForm, montoNumero, validarPago, type PagoForm } from '../components/AnticipoForm';
+import { ConstanciaSaldoCard } from '../components/ConstanciaSaldoCard';
 import { TitleBar, TwoColumns } from '../components/composites';
-import { DateRangeField } from '../components/DatePicker';
+import { DateRangeField, hoyIso } from '../components/DatePicker';
 import {
   Button,
   Card,
@@ -25,10 +37,21 @@ import {
   Table,
   Timeline,
 } from '../components/ui';
-import { historialR1048, listadoReservas, type FilaReserva } from '../data/demo';
+import { historialR1048, type FilaReserva } from '../data/demo';
 import { routes } from '../navigation';
 
-const ESTADOS = ['Confirmada', 'Completada', 'Cancelada', 'Recibida', 'Finalizado'];
+const ESTADOS = ['Pendiente', 'Confirmada', 'Completada', 'Cancelada', 'Recibida', 'Finalizado'];
+const ESTADO_BACK: Record<string, string> = { PENDIENTE: 'Pendiente', CONFIRMADA: 'Confirmada', CANCELADA: 'Cancelada' };
+const RESPONSABLE = 'Ana Martínez · Administradora';
+const pagoInicial = (): PagoForm => ({
+  modo: 'anticipo',
+  monto: '',
+  metodo: 'TRANSFERENCIA',
+  referencia: '',
+  fechaPago: hoyIso(),
+  fechaLimite: '',
+  observacion: '',
+});
 
 /** Acciones del detalle según el estado de la reserva seleccionada. */
 function accionesPara(fila: FilaReserva): { primaria: [string, Href]; secundaria?: [string, Href]; nota: string } {
@@ -89,6 +112,19 @@ export default function GestionReservasScreen() {
   // Estado para las reservas reales y estado de carga
   const [reservasBD, setReservasBD] = useState<any[]>([]);
   const [cargando, setCargando] = useState(true);
+  // Sprint 2: anticipos y constancias por reserva (GET /view/pagos, mock mientras el back no lo exponga)
+  const [pagos, setPagos] = useState<PagoReserva[]>([]);
+  const [registrando, setRegistrando] = useState(false);
+  const [pagoForm, setPagoForm] = useState<PagoForm>(pagoInicial);
+  const [guardandoPago, setGuardandoPago] = useState(false);
+  const [errorPago, setErrorPago] = useState<string | null>(null);
+
+  const cargarPagos = useCallback(() => {
+    reservasService
+      .listarPagos()
+      .then((r) => setPagos(r.pagos))
+      .catch(() => setPagos([]));
+  }, []);
 
   // Cargar reservas y espacios de MySQL al entrar
   useEffect(() => {
@@ -105,13 +141,14 @@ export default function GestionReservasScreen() {
       .catch((err) => console.error('Error al cargar reservas:', err))
       .finally(() => setCargando(false));
 
-    fetch('http://localhost/CampoDeportivoRosas/back/ms-disponibilidad/public/index.php/view/espacios')
-      .then((r) => r.json())
-      .then((data) => {
-        if (data?.espacios) setEspacios(data.espacios);
-      })
+    disponibilidadService
+      .listarEspacios()
+      .then((data) => setEspacios(data.espacios ?? []))
       .catch(() => {});
-  }, []);
+    cargarPagos();
+  }, [cargarPagos]);
+
+  const pagoPorId = useMemo(() => new Map(pagos.map((p) => [p.reserva_id, p])), [pagos]);
 
   // Adaptar las reservas de MySQL (NUNCA usa listadoReservas)
   const reservasAdaptadas = useMemo(() => {
@@ -130,9 +167,18 @@ export default function GestionReservasScreen() {
       const ref = `R-${String(r.id).padStart(4, '0')}`;
       const nombreCliente = r.cliente?.nombre || r.entidad_organizadora || `Cliente #${r.cliente_id}`;
       const espacioNombre = mapaEspacios[r.espacio_id] || `Espacio #${r.espacio_id}`;
-      const anticipoNum = parseFloat(r.anticipo) || 0;
-      const alquilerNum = 120000;
+      const pago = pagoPorId.get(Number(r.id));
+      const espacioBD = espacios.find((e) => e.id === r.espacio_id) ?? { id: r.espacio_id };
+      const alquilerNum = pago?.valor_total || calcularValorTotal(espacioBD, r.hora_inicio || '', r.hora_fin || '');
+      const anticipoNum = pago?.anticipo?.monto ?? (parseFloat(r.anticipo) || 0);
       const saldoNum = Math.max(0, alquilerNum - anticipoNum);
+      const estadoPago = pago?.anticipo
+        ? `Anticipo ${pago.anticipo.codigo}`
+        : pago?.constancia
+          ? `Saldo pendiente · ${pago.constancia.codigo}`
+          : anticipoNum > 0
+            ? 'Con anticipo'
+            : 'Sin anticipo';
       const hIni = (r.hora_inicio || '').slice(0, 5);
       const hFin = (r.hora_fin || '').slice(0, 5);
 
@@ -141,10 +187,10 @@ export default function GestionReservasScreen() {
         cliente: nombreCliente,
         espacioId: r.espacio_id,
         fecha: r.fecha,
-        estado: r.estado === 'CONFIRMADA' ? 'Confirmada' : (r.estado || 'Confirmada'),
+        estado: ESTADO_BACK[r.estado] ?? (r.estado || 'Confirmada'),
         linea1: `${espacioNombre} · ${r.fecha}`,
         linea2: `${hIni} – ${hFin}`,
-        estadoDetalle: anticipoNum > 0 ? 'Con anticipo' : 'Sin anticipo',
+        estadoDetalle: estadoPago,
         saldo: formatCOP(saldoNum),
         detalle: {
           nombre: nombreCliente,
@@ -158,7 +204,7 @@ export default function GestionReservasScreen() {
         },
       } as FilaReserva;
     });
-  }, [reservasBD]);
+  }, [reservasBD, pagoPorId, espacios]);
 
   // Filtrado sobre reservas reales
   const filas = useMemo(
@@ -179,6 +225,56 @@ export default function GestionReservasScreen() {
   // Reserva seleccionada para el detalle derecho
   const actual = reservasAdaptadas.find((f) => f.ref === seleccion) ?? reservasAdaptadas[0] ?? filaVacia;
   const acciones = accionesPara(actual);
+  const reservaId = Number(actual.ref.replace(/\D/g, '')) || 0;
+  const pagoActual = pagoPorId.get(reservaId) ?? null;
+  const puedeRegistrarAnticipo = actual.estado === 'Confirmada' && reservaId > 0 && actual.detalle.anticipo === 0;
+
+  // Historial: lo que el Sprint 2 sabe de la reserva (alternativa aceptada, anticipo, constancia).
+  const historial = useMemo(() => {
+    const eventos: { title: string; detail: string }[] = [{ title: 'Confirmada', detail: 'Se bloqueó la franja acordada en el cronograma del espacio.' }];
+    const alt = pagoActual?.alternativa;
+    if (alt) {
+      eventos.unshift({
+        title: 'Fecha alternativa aceptada',
+        detail: `Pedida ${formatFecha(alt.solicitud.fecha)} ${shortTime(alt.solicitud.hora_inicio)}; aceptada la opción ${alt.aceptada.orden}: ${formatFecha(alt.aceptada.fecha)} ${shortTime(alt.aceptada.hora_inicio)}.`,
+      });
+    }
+    if (pagoActual?.anticipo) {
+      const a = pagoActual.anticipo;
+      eventos.push({ title: `Anticipo registrado · ${formatFecha(a.fecha_pago)}`, detail: `${a.registrado_por} · ${formatCOP(a.monto)} COP · ${a.codigo}.` });
+    }
+    if (pagoActual?.constancia) {
+      const c = pagoActual.constancia;
+      eventos.push({ title: `Constancia de saldo · ${formatFecha(c.fecha_emision)}`, detail: `${c.codigo} · ${formatCOP(c.saldo_pendiente)} COP · pagar antes del ${formatFecha(c.fecha_limite_pago)}.` });
+    }
+    return eventos;
+  }, [pagoActual]);
+
+  // HU-08 · registrar el anticipo de una reserva ya confirmada (POST /view/anticipo)
+  const registrarAnticipo = async () => {
+    const error = validarPago(pagoForm, actual.detalle.alquiler);
+    setErrorPago(error);
+    if (error) return;
+    setGuardandoPago(true);
+    try {
+      await reservasService.registrarAnticipo({
+        reserva_id: reservaId,
+        valor_total: actual.detalle.alquiler,
+        monto: montoNumero(pagoForm.monto),
+        metodo_pago: pagoForm.metodo,
+        referencia: pagoForm.referencia.trim() || null,
+        fecha_pago: pagoForm.fechaPago,
+        registrado_por: RESPONSABLE,
+      });
+      setRegistrando(false);
+      setPagoForm(pagoInicial());
+      cargarPagos();
+    } catch (e) {
+      setErrorPago(e instanceof ApiError ? e.message : 'No se pudo registrar el anticipo');
+    } finally {
+      setGuardandoPago(false);
+    }
+  };
 
   const limpiar = () => {
     setEstado('todos');
@@ -253,7 +349,11 @@ export default function GestionReservasScreen() {
                   f.saldo,
                 ])}
                 selected={filas.findIndex((f) => f.ref === seleccion)}
-                onSelect={(i) => setSeleccion(filas[i].ref)}
+                onSelect={(i) => {
+                  setSeleccion(filas[i].ref);
+                  setRegistrando(false);
+                  setErrorPago(null);
+                }}
               />
               <Row gap={16}>
                 <View style={{ flex: 1 }} />
@@ -294,6 +394,9 @@ export default function GestionReservasScreen() {
               <DataRow label="Anticipo registrado" value={formatCOP(-actual.detalle.anticipo)} />
               <DataRow big label="Saldo de servicio" value={formatCOP(actual.detalle.alquiler - actual.detalle.anticipo)} />
               <Small>Antes de recepción y valoración de daños. Moneda asumida COP.</Small>
+              {puedeRegistrarAnticipo && !registrando ? (
+                <Button label="Registrar anticipo" variant="secondary" onPress={() => setRegistrando(true)} />
+              ) : null}
               <Button label={acciones.primaria[0]} onPress={() => router.push(acciones.primaria[1])} />
               {acciones.secundaria ? (
                 <Button
@@ -304,19 +407,29 @@ export default function GestionReservasScreen() {
               ) : null}
               <Small>{acciones.nota}</Small>
             </Card>
-            <Card title="Historial de la reserva">
-              <Timeline
-                events={
-                  actual.ref === 'R-1048'
-                    ? historialR1048
-                    : [
-                        {
-                          title: 'Consulta de detalle · Reciente',
-                          detail: 'Registro sincronizado desde la base de datos.',
-                        },
-                      ]
-                }
+            {registrando && puedeRegistrarAnticipo ? (
+              <Card title={`Registrar anticipo de ${actual.ref}`} badge={<Chip label="Tarifa · COP" />} style={{ zIndex: 5 }}>
+                <AnticipoForm value={pagoForm} onChange={setPagoForm} valorTotal={actual.detalle.alquiler} soloAnticipo />
+                {errorPago ? <Notice tone="danger" title="No se registró el anticipo">{errorPago}</Notice> : null}
+                <Row gap={12}>
+                  <Button label="Guardar anticipo" loading={guardandoPago} onPress={registrarAnticipo} />
+                  <Button label="Cancelar" variant="secondary" onPress={() => setRegistrando(false)} />
+                </Row>
+                {pagoActual?.constancia ? <Small>Al registrar el anticipo, la constancia de saldo {pagoActual.constancia.codigo} deja de aplicar.</Small> : null}
+              </Card>
+            ) : null}
+            {pagoActual?.anticipo || pagoActual?.constancia ? (
+              <ConstanciaSaldoCard
+                referencia={actual.ref}
+                cliente={actual.detalle.nombre}
+                detalle={actual.detalle.fecha}
+                valorTotal={actual.detalle.alquiler}
+                anticipo={pagoActual.anticipo}
+                constancia={pagoActual.constancia}
               />
+            ) : null}
+            <Card title="Historial de la reserva">
+              <Timeline events={actual.ref === 'R-1048' && !pagoActual ? historialR1048 : historial} />
             </Card>
           </>
         }

@@ -1,6 +1,9 @@
 /**
  * Servicio del microservicio ms-reservas (rama back).
  * Endpoints: GET /view/clientes · POST /view/createcliente · GET /view/reservas · POST /view/validarrecurrencia · POST /view/confirmarreserva
+ * Sprint 2 (propuestos, aún no existen en el back; mientras tanto mocks/sprint2.ts):
+ *   POST /view/alternativas · POST /view/aceptaralternativa · POST /view/rechazaralternativas
+ *   POST /view/anticipo · POST /view/confirmarsinanticipo · GET /view/pagos
  */
 
 import { diaIso } from '../utils/format';
@@ -8,7 +11,18 @@ import { apiConfig } from './config';
 import { estaDisponible } from './disponibilidad';
 import { ApiError, request } from './http';
 import { bloqueos, clientes, delay, nextId, nextReservaId } from './mocks/db';
+import { sprint2Mock } from './mocks/sprint2';
 import type {
+  AceptarAlternativaRequest,
+  AceptarAlternativaResponse,
+  ConfirmarSinAnticipoRequest,
+  ConfirmarSinAnticipoResponse,
+  ListarPagosResponse,
+  ProponerAlternativasRequest,
+  ProponerAlternativasResponse,
+  RechazarAlternativasRequest,
+  RegistrarAnticipoRequest,
+  RegistrarAnticipoResponse,
   ConfirmarReservaRequest,
   ConfirmarReservaResponse,
   CrearClienteRequest,
@@ -50,9 +64,61 @@ export interface ReservasService {
   listarReservas(filtros?: { espacio_id?: number; fecha?: string }): Promise<{ status: string; reservas: any[] }>;
   validarRecurrencia(body: ValidarRecurrenciaRequest): Promise<ValidarRecurrenciaResponse>;
   confirmarReserva(body: ConfirmarReservaRequest): Promise<ConfirmarReservaResponse>;
+  // Sprint 2
+  proponerAlternativas(body: ProponerAlternativasRequest): Promise<ProponerAlternativasResponse>;
+  aceptarAlternativa(body: AceptarAlternativaRequest): Promise<AceptarAlternativaResponse>;
+  rechazarAlternativas(body: RechazarAlternativasRequest): Promise<AceptarAlternativaResponse>;
+  registrarAnticipo(body: RegistrarAnticipoRequest): Promise<RegistrarAnticipoResponse>;
+  confirmarSinAnticipo(body: ConfirmarSinAnticipoRequest): Promise<ConfirmarSinAnticipoResponse>;
+  listarPagos(): Promise<ListarPagosResponse>;
 }
 
 const base = () => apiConfig.reservasUrl;
+
+/** Endpoints del Sprint 2: reales si EXPO_PUBLIC_SPRINT2_API=true, si no, mock tipado. */
+const sprint2Api: Pick<
+  ReservasService,
+  'proponerAlternativas' | 'aceptarAlternativa' | 'rechazarAlternativas' | 'registrarAnticipo' | 'confirmarSinAnticipo' | 'listarPagos'
+> = {
+  proponerAlternativas: (body) => request(base(), '/view/alternativas', { method: 'POST', body }),
+  aceptarAlternativa: (body) => request(base(), '/view/aceptaralternativa', { method: 'POST', body }),
+  rechazarAlternativas: (body) => request(base(), '/view/rechazaralternativas', { method: 'POST', body }),
+  registrarAnticipo: (body) => request(base(), '/view/anticipo', { method: 'POST', body }),
+  confirmarSinAnticipo: (body) => request(base(), '/view/confirmarsinanticipo', { method: 'POST', body }),
+  listarPagos: () => request(base(), '/view/pagos'),
+};
+
+const sprint2Local: typeof sprint2Api = {
+  async proponerAlternativas({ alternativas, ...datos }) {
+    await delay();
+    return { status: 'success', ...sprint2Mock.crearSolicitud(datos, alternativas) };
+  },
+  async aceptarAlternativa({ solicitud_id, alternativa_id, reserva_id }) {
+    await delay();
+    const r = sprint2Mock.aceptarAlternativa(solicitud_id, alternativa_id, reserva_id);
+    return { status: 'success', mensaje: 'Alternativa aceptada', ...r };
+  },
+  async rechazarAlternativas({ solicitud_id }) {
+    await delay();
+    const r = sprint2Mock.rechazarAlternativas(solicitud_id);
+    return { status: 'success', mensaje: 'El cliente rechazó todas las alternativas', ...r };
+  },
+  async registrarAnticipo({ valor_total, ...datos }) {
+    await delay();
+    const r = sprint2Mock.registrarAnticipo(datos, valor_total);
+    return { status: 'success', mensaje: 'Anticipo registrado', ...r };
+  },
+  async confirmarSinAnticipo({ valor_total, ...datos }) {
+    await delay();
+    const constancia = sprint2Mock.confirmarSinAnticipo(datos, valor_total);
+    return { status: 'success', mensaje: 'Reserva confirmada sin anticipo', constancia };
+  },
+  async listarPagos() {
+    return { status: 'success', pagos: sprint2Mock.listarPagos() };
+  },
+};
+
+const sprint2 = () => (apiConfig.sprint2Api ? sprint2Api : sprint2Local);
 
 const api: ReservasService = {
   listarClientes: () => request(base(), '/view/clientes'),
@@ -66,6 +132,12 @@ const api: ReservasService = {
   },
   validarRecurrencia: (body) => request(base(), '/view/validarrecurrencia', { method: 'POST', body }),
   confirmarReserva: (body) => request(base(), '/view/confirmarreserva', { method: 'POST', body }),
+  proponerAlternativas: (body) => sprint2().proponerAlternativas(body),
+  aceptarAlternativa: (body) => sprint2().aceptarAlternativa(body),
+  rechazarAlternativas: (body) => sprint2().rechazarAlternativas(body),
+  registrarAnticipo: (body) => sprint2().registrarAnticipo(body),
+  confirmarSinAnticipo: (body) => sprint2().confirmarSinAnticipo(body),
+  listarPagos: () => sprint2().listarPagos(),
 };
 
 /**
@@ -151,6 +223,7 @@ const mock: ReservasService = {
     });
     return { status: 'success', mensaje: 'Reserva confirmada con éxito', reserva_id, bloqueo_sincronizado: true };
   },
+  ...sprint2Local,
 };
 
 export const reservasService: ReservasService = api;
