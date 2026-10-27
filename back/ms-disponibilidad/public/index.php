@@ -17,5 +17,7 @@ $app->addErrorMiddleware(true, true, true);
 
 $routes = require __DIR__ . '/../app/Endpoints/endpoints.php';
 $routes($app);
-
+$app->options('/{routes:.+}', function ($request, $response) {
+    return $response;
+});
 $app->run();

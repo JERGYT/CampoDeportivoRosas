@@ -4,10 +4,16 @@ namespace App\Middleware;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 use Psr\Http\Server\RequestHandlerInterface as RequestHandler;
+use Slim\Psr7\Response as SlimResponse;
 
 class Cors {
     public function __invoke(Request $request, RequestHandler $handler): Response {
-        $response = $handler->handle($request);
+        if ($request->getMethod() === 'OPTIONS') {
+            $response = new SlimResponse();
+        } else {
+            $response = $handler->handle($request);
+        }
+
         return $response
             ->withHeader('Access-Control-Allow-Origin', '*')
             ->withHeader('Access-Control-Allow-Headers', 'X-Requested-With, Content-Type, Accept, Origin, Authorization')
