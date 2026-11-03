@@ -24,11 +24,10 @@ export interface Espacio {
 }
 
 export interface DisponibilidadService {
-  
   listarEspacios(): Promise<ListarEspaciosResponse>;
-  consultar(params: ConsultarDisponibilidadParams): Promise<ConsultarDisponibilidadResponse>;
-  cronograma(params: CronogramaParams): Promise<CronogramaResponse>;
-  bloquear(body: BloquearRequest): Promise<BloquearResponse>;
+  consultar(params: any): Promise<any>; // <--- Asegurar que reciba any
+  cronograma(params: any): Promise<any>;
+  bloquear(body: any): Promise<any>;
   obtenerEspacios(): Promise<Espacio[]>;
 }
 

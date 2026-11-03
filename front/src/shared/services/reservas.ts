@@ -50,6 +50,10 @@ export interface ReservasService {
   listarReservas(filtros?: { espacio_id?: number; fecha?: string }): Promise<{ status: string; reservas: any[] }>;
   validarRecurrencia(body: ValidarRecurrenciaRequest): Promise<ValidarRecurrenciaResponse>;
   confirmarReserva(body: ConfirmarReservaRequest): Promise<ConfirmarReservaResponse>;
+  entregar(body: { reserva_id: number }): Promise<any>;
+  recibir(body: { reserva_id: number }): Promise<any>;
+  registrarDanos(body: { reserva_id: number; danos: number }): Promise<any>;
+  liquidar(body: { reserva_id: number; metodo_pago: string }): Promise<any>;
 }
 
 const base = () => apiConfig.reservasUrl;
@@ -66,6 +70,10 @@ const api: ReservasService = {
   },
   validarRecurrencia: (body) => request(base(), '/view/validarrecurrencia', { method: 'POST', body }),
   confirmarReserva: (body) => request(base(), '/view/confirmarreserva', { method: 'POST', body }),
+  entregar: (body) => request(base(), '/view/entregar', { method: 'POST', body }),
+  recibir: (body) => request(base(), '/view/recibir', { method: 'POST', body }),
+  registrarDanos: (body) => request(base(), '/view/registrardanos', { method: 'POST', body }),
+  liquidar: (body) => request(base(), '/view/liquidar', { method: 'POST', body }),
 };
 
 /**
@@ -151,6 +159,10 @@ const mock: ReservasService = {
     });
     return { status: 'success', mensaje: 'Reserva confirmada con éxito', reserva_id, bloqueo_sincronizado: true };
   },
+  async entregar() { return { status: 'success', mensaje: 'Espacio entregado.' }; },
+  async recibir() { return { status: 'success', mensaje: 'Espacio recibido.' }; },
+  async registrarDanos() { return { status: 'success', mensaje: 'Daños registrados.' }; },
+  async liquidar() { return { status: 'success', mensaje: 'Liquidación completada.' }; },
 };
 
 export const reservasService: ReservasService = api;

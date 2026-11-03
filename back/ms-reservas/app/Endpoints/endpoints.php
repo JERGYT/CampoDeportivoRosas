@@ -11,5 +11,10 @@ return function(App $app) {
         $group->get('/reservas', [ReservaController::class, 'listar']);
         $group->post('/validarrecurrencia', [ReservaController::class, 'validarRecurrencia']);
         $group->post('/confirmarreserva', [ReservaController::class, 'confirmarReserva']);
+        
+        $group->post('/entregar', [ReservaController::class, 'entregar']);
+        $group->post('/recibir', [ReservaController::class, 'recibir']);
+        $group->post('/registrardanos', [ReservaController::class, 'registrarDanos']);
+        $group->post('/liquidar', [ReservaController::class, 'liquidar']);
     });
 };
