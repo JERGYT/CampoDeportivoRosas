@@ -1,20 +1,26 @@
-### Endpoint: Consultar disponibilidad dentro de horario (Lunes a Domingo 06:00 - 22:00)
-GET http://localhost/CampoDeportivoRosas/back/ms-disponibilidad/public/index.php/view/consultar?espacio_id=1&fecha=2026-10-20&hora_inicio=10:00:00&hora_fin=12:00:00
+### 1. Listar todos los espacios deportivos y sus caracteristicas
+GET http://localhost/CampoDeportivoRosas/back/ms-disponibilidad/public/index.php/view/espacios
 
-### Endpoint: Consultar disponibilidad fuera de horario de atencion (Madrugada)
+### 2. Consultar disponibilidad dentro de horario libre (Lunes a Domingo 06:00 - 22:00)
+GET http://localhost/CampoDeportivoRosas/back/ms-disponibilidad/public/index.php/view/consultar?espacio_id=1&fecha=2026-11-07&hora_inicio=10:00:00&hora_fin=12:00:00&tipo=PARTICULAR
+
+### 3. Consultar disponibilidad fuera de horario de atencion (Madrugada)
 GET http://localhost/CampoDeportivoRosas/back/ms-disponibilidad/public/index.php/view/consultar?espacio_id=1&fecha=2026-10-20&hora_inicio=03:00:00&hora_fin=05:00:00
 
-### Endpoint: Consultar cronograma semanal de bloqueos
-GET http://localhost/CampoDeportivoRosas/back/ms-disponibilidad/public/index.php/view/cronograma?espacio_id=1&desde=2026-10-12&hasta=2026-10-25
+### 4. HU-06: Consultar franja ocupada y recibir sugerencias de fechas/horas alternativas
+GET http://localhost/CampoDeportivoRosas/back/ms-disponibilidad/public/index.php/view/consultar?espacio_id=1&fecha=2026-10-31&hora_inicio=14:00:00&hora_fin=16:00:00&tipo=PARTICULAR
 
-### Endpoint: Bloquear horario directamente
+### 5. Consultar cronograma semanal de bloqueos de un espacio
+GET http://localhost/CampoDeportivoRosas/back/ms-disponibilidad/public/index.php/view/cronograma?espacio_id=1&desde=2026-10-12&hasta=2026-11-15
+
+### 6. Bloquear horario directamente (Reserva o Mantenimiento)
 POST http://localhost/CampoDeportivoRosas/back/ms-disponibilidad/public/index.php/view/bloquear
 Content-Type: application/json
 
 {
   "espacio_id": 1,
   "reserva_id": 99,
-  "fecha": "2026-10-28",
+  "fecha": "2026-11-10",
   "hora_inicio": "14:00:00",
   "hora_fin": "16:00:00",
   "tipo": "MANTENIMIENTO"

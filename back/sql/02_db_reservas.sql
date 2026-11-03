@@ -24,6 +24,9 @@ CREATE TABLE IF NOT EXISTS reservas (
     FOREIGN KEY (cliente_id) REFERENCES clientes(id)
 );
 
+ALTER TABLE reservas MODIFY COLUMN estado VARCHAR(50) NOT NULL DEFAULT 'CONFIRMADA';
+UPDATE reservas SET estado = 'CONFIRMADA' WHERE estado = '' OR estado IS NULL;
+
 INSERT IGNORE INTO clientes (id, nombre, telefono, correo, tipo) VALUES
 (1, 'Escuela de Fútbol Semillero', '3005550182', 'laura@semillero.example', 'ESCUELA_FORMACION'),
 (2, 'Torneo Relámpago Boyacá', '3119876543', 'torneo@deportes.example', 'CAMPEONATO'),
