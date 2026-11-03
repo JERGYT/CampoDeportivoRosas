@@ -90,8 +90,7 @@ class ReservaController {
             $response->getBody()->write(json_encode(["status" => "error", "mensaje" => "El cliente especificado no existe"]));
             return $response->withHeader('Content-Type', 'application/json')->withStatus(400);
         }
-
-        // HU-08 y HU-09: Normalizar y validar anticipo
+        
         $anticipo = isset($data['anticipo']) && is_numeric($data['anticipo']) ? floatval($data['anticipo']) : 0.0;
         if ($anticipo < 0) {
             $response->getBody()->write(json_encode(["status" => "error", "mensaje" => "El anticipo no puede ser negativo"]));
@@ -158,6 +157,117 @@ class ReservaController {
         $response->getBody()->write(json_encode([
             "status" => "success",
             "reservas" => $reservas
+        ]));
+        return $response->withHeader('Content-Type', 'application/json')->withStatus(200);
+    }
+
+    public function entregar(Request $request, Response $response): Response {
+        $data = json_decode((string)$request->getBody(), true);
+        $id = $data['reserva_id'] ?? null;
+        $reserva = $this->reservaRepository->obtenerPorId($id);
+
+        if (!$reserva) {
+            $response->getBody()->write(json_encode(["status" => "error", "mensaje" => "Reserva no encontrada"]));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(404);
+        }
+
+        if ($reserva->estado !== 'CONFIRMADA') {
+            $response->getBody()->write(json_encode([
+                "status" => "error", 
+                "mensaje" => "No se puede entregar: La reserva debe estar en estado CONFIRMADA (estado actual: {$reserva->estado})."
+            ]));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(400);
+        }
+
+        $this->reservaRepository->actualizar($id, ['estado' => 'ENTREGADA']);
+
+        $response->getBody()->write(json_encode([
+            "status" => "success",
+            "mensaje" => "Espacio e implementos entregados conforme al checklist. Reserva en uso.",
+            "estado" => "ENTREGADA"
+        ]));
+        return $response->withHeader('Content-Type', 'application/json')->withStatus(200);
+    }
+
+    public function recibir(Request $request, Response $response): Response {
+        $data = json_decode((string)$request->getBody(), true);
+        $id = $data['reserva_id'] ?? null;
+        $reserva = $this->reservaRepository->obtenerPorId($id);
+
+        if (!$reserva) {
+            $response->getBody()->write(json_encode(["status" => "error", "mensaje" => "Reserva no encontrada"]));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(404);
+        }
+
+        if (!in_array($reserva->estado, ['ENTREGADA', 'CONFIRMADA'])) {
+            $response->getBody()->write(json_encode([
+                "status" => "error", 
+                "mensaje" => "La reserva no está en estado de entrega para ser recibida."
+            ]));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(400);
+        }
+
+        $this->reservaRepository->actualizar($id, ['estado' => 'RECIBIDA']);
+
+        $response->getBody()->write(json_encode([
+            "status" => "success",
+            "mensaje" => "Espacio e implementos recibidos correctamente.",
+            "estado" => "RECIBIDA"
+        ]));
+        return $response->withHeader('Content-Type', 'application/json')->withStatus(200);
+    }
+
+    public function registrarDanos(Request $request, Response $response): Response {
+        $data = json_decode((string)$request->getBody(), true);
+        $id = $data['reserva_id'] ?? null;
+        $danos = floatval($data['danos'] ?? 0);
+
+        $reserva = $this->reservaRepository->obtenerPorId($id);
+        if (!$reserva) {
+            $response->getBody()->write(json_encode(["status" => "error", "mensaje" => "Reserva no encontrada"]));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(404);
+        }
+
+        $this->reservaRepository->actualizar($id, ['danos' => $danos]);
+
+        $response->getBody()->write(json_encode([
+            "status" => "success",
+            "mensaje" => "Valor de daños registrado: $" . number_format($danos, 0, ',', '.') . " COP.",
+            "danos" => $danos
+        ]));
+        return $response->withHeader('Content-Type', 'application/json')->withStatus(200);
+    }
+
+    public function liquidar(Request $request, Response $response): Response {
+        $data = json_decode((string)$request->getBody(), true);
+        $id = $data['reserva_id'] ?? null;
+        $metodoPago = $data['metodo_pago'] ?? 'EFECTIVO';
+
+        $reserva = $this->reservaRepository->obtenerPorId($id);
+        if (!$reserva) {
+            $response->getBody()->write(json_encode(["status" => "error", "mensaje" => "Reserva no encontrada"]));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(404);
+        }
+
+        $alquiler = 120000.00;
+        $danos = floatval($reserva->danos ?? 0);
+        $anticipo = floatval($reserva->anticipo ?? 0);
+        $totalPagar = max(0, ($alquiler + $danos) - $anticipo);
+
+        $this->reservaRepository->actualizar($id, [
+            'estado' => 'COMPLETADA',
+            'metodo_pago' => $metodoPago
+        ]);
+
+        $response->getBody()->write(json_encode([
+            "status" => "success",
+            "mensaje" => "Liquidación completada. Pago final de $" . number_format($totalPagar, 0, ',', '.') . " recibido mediante {$metodoPago}.",
+            "alquiler" => $alquiler,
+            "danos" => $danos,
+            "anticipo" => $anticipo,
+            "total_pagado" => $totalPagar,
+            "metodo_pago" => $metodoPago,
+            "estado" => "COMPLETADA"
         ]));
         return $response->withHeader('Content-Type', 'application/json')->withStatus(200);
     }

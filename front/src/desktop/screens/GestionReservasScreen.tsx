@@ -25,31 +25,38 @@ import {
 import { historialR1048, listadoReservas } from '../data/demo';
 import { routes } from '../navigation';
 
-const ESTADOS = ['Confirmada', 'Completada', 'Cancelada', 'Recibida', 'Finalizado'];
+const ESTADOS = ['CONFIRMADA', 'ENTREGADA', 'RECIBIDA', 'COMPLETADA', 'CANCELADA'];
 
 function accionesPara(fila: any) {
-  switch (fila?.estado) {
-    case 'Confirmada':
+  const est = (fila?.estado || '').toUpperCase();
+
+  switch (est) {
+    case 'CONFIRMADA':
       return {
         primaria: ['Validar y entregar espacio', routes.entrega],
         secundaria: ['Iniciar cancelación', routes.cancelacion],
-        nota: 'La reserva está confirmada: puede entregarse tras validar. La cancelación solo la gestiona el administrador.',
+        nota: 'La reserva está confirmada: puede entregarse tras validar el checklist.',
       };
-    case 'Recibida':
+    case 'ENTREGADA':
+      return {
+        primaria: ['Recibir espacio e implementos', routes.recepcion],
+        nota: 'El espacio está en uso. Al concluir la franja horaria, realiza la recepción física.',
+      };
+    case 'RECIBIDA':
       return {
         primaria: ['Liquidar reserva', routes.liquidacion],
-        nota: 'El espacio ya fue recibido: falta la liquidación y el pago final.',
+        nota: 'El espacio ya fue recibido: procede con el balance de daños y el pago final.',
       };
-    case 'Cancelada':
+    case 'COMPLETADA':
+      return {
+        primaria: ['Ver liquidación', routes.liquidacion],
+        nota: 'Reserva cerrada con saldo $0.',
+      };
+    case 'CANCELADA':
       return {
         primaria: ['Gestionar devolución', routes.devolucion],
         secundaria: ['Ver auditoría de cancelación', routes.cancelacionCompletada],
         nota: 'La reserva fue cancelada y el horario liberado.',
-      };
-    case 'Completada':
-      return {
-        primaria: ['Ver liquidación', routes.liquidacion],
-        nota: 'Reserva cerrada con saldo $0.',
       };
     default:
       return {
@@ -94,7 +101,6 @@ export default function GestionReservasScreen() {
   const [reservasBD, setReservasBD] = useState<any[]>([]);
   const [cargando, setCargando] = useState(true);
 
-  // Carga inicial desde MySQL
   useEffect(() => {
     reservasService
       .listarReservas()
@@ -139,14 +145,14 @@ export default function GestionReservasScreen() {
       const hFin = (r.hora_fin || '').slice(0, 5);
 
       return {
+        id: r.id,
         ref,
         cliente: nombreCliente,
         espacioId: r.espacio_id,
         fecha: r.fecha,
-        estado: r.estado === 'CONFIRMADA' ? 'Confirmada' : (r.estado || 'Confirmada'),
+        estado: r.estado ? r.estado.toUpperCase() : 'CONFIRMADA',
         linea1: `${espacioNombre} · ${r.fecha}`,
         linea2: `${hIni} - ${hFin}`,
-        // Distinción visual HU-08 vs HU-09 en la tabla
         estadoDetalle: conAnticipo ? 'Con anticipo' : 'Sin anticipo (100% pendiente)',
         saldo: formatCOP(saldoNum),
         detalle: {
@@ -158,7 +164,6 @@ export default function GestionReservasScreen() {
           correo: r.cliente?.correo || 'Sin correo',
           alquiler: alquilerNum,
           anticipo: anticipoNum,
-          // Constancia formal según HU-08 o HU-09
           notaPago: conAnticipo
             ? `Reserva asegurada con anticipo de ${formatCOP(anticipoNum)}. Saldo restante: ${formatCOP(saldoNum)}.`
             : `Constancia: Sin anticipo registrado. Saldo pendiente total de ${formatCOP(saldoNum)} por liquidar.`,
@@ -167,7 +172,6 @@ export default function GestionReservasScreen() {
     });
   }, [reservasBD]);
 
-  // Filtrado reactivo de las filas
   const filas = useMemo(
     () =>
       reservasAdaptadas.filter((f: any) => {
@@ -305,13 +309,22 @@ export default function GestionReservasScreen() {
               <DataRow label="Anticipo registrado" value={formatCOP(-actual.detalle.anticipo)} />
               <DataRow big label="Saldo pendiente" value={formatCOP(actual.detalle.alquiler - actual.detalle.anticipo)} />
               
-              {/* Bloque de constancia explícita HU-08 / HU-09 */}
+              {/* Constancia financiera */}
               <View style={{ padding: 10, backgroundColor: '#F3F4F6', borderRadius: 6, marginVertical: 8 }}>
                 <T size={12} weight="semibold" color="#374151">Constancia de liquidación:</T>
                 <T size={12} color="#4B5563">{actual.detalle.notaPago}</T>
               </View>
 
-              <Button label={acciones.primaria[0]} onPress={() => router.push(acciones.primaria[1] as any)} />
+              {/* ÚNICO BOTÓN PRIMARIO DINÁMICO */}
+              <Button
+                label={acciones.primaria[0]}
+                onPress={() => {
+                  const destino = actual?.id ? `${acciones.primaria[1]}?id=${actual.id}` : acciones.primaria[1];
+                  router.push(destino as any);
+                }}
+              />
+
+              {/* Botón secundario si aplica */}
               {acciones.secundaria ? (
                 <Button
                   label={acciones.secundaria[0]}
@@ -319,25 +332,23 @@ export default function GestionReservasScreen() {
                   onPress={() => router.push(acciones.secundaria![1] as any)}
                 />
               ) : null}
+
               <Small>{acciones.nota}</Small>
             </Card>
 
+            {/* Historial limpio sin términos de base de datos */}
             <Card title="Historial de la reserva">
               <Timeline
-                events={
-                  actual.ref === 'R-1048'
-                    ? historialR1048
-                    : [
-                        {
-                          title: `Estado: ${actual.estado}`,
-                          detail: actual.detalle.notaPago,
-                        },
-                        {
-                          title: 'Registro en MySQL',
-                          detail: 'Sincronizado con microservicio ms-reservas y ms-disponibilidad.',
-                        },
-                      ]
-                }
+                events={[
+                  {
+                    title: `Estado: ${actual.estado}`,
+                    detail: actual.detalle.notaPago,
+                  },
+                  {
+                    title: 'Reserva registrada en el sistema',
+                    detail: 'Registro creado y confirmado en la administración del complejo deportivo.',
+                  },
+                ]}
               />
             </Card>
           </>
