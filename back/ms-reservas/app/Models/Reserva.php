@@ -18,7 +18,11 @@ class Reserva extends Model {
         'anticipo',
         'danos',
         'metodo_pago',
-        'estado'
+        'estado',
+        'motivo_cancelacion',
+        'monto_devolucion',
+        'metodo_devolucion',
+        'fecha_cancelacion'
     ];
 
     public function cliente() {

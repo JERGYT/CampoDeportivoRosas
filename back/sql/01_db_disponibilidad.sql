@@ -1,61 +1,103 @@
-CREATE DATABASE IF NOT EXISTS db_disponibilidad CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE db_disponibilidad;
+CREATE DATABASE IF NOT EXISTS `db_disponibilidad` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE `db_disponibilidad`;
 
-CREATE TABLE IF NOT EXISTS espacios (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    nombre VARCHAR(100) NOT NULL,
-    tipo ENUM('FUTBOL', 'TEJO', 'SALON_COMUNAL', 'BARBECUE') NOT NULL,
-    capacidad INT NOT NULL,
-    estado VARCHAR(20) DEFAULT 'ACTIVO',
-    jugadores_por_equipo INT NULL,
-    dimensiones VARCHAR(50) NULL,
-    numero_carriles INT NULL,
-    tiene_sonido TINYINT(1) NULL,
-    numero_asadores INT NULL,
-    tiene_mesas TINYINT(1) NULL
-);
+SET FOREIGN_KEY_CHECKS = 0;
 
-CREATE TABLE IF NOT EXISTS horarios_atencion (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    espacio_id INT NOT NULL,
-    dia ENUM('LUNES', 'MARTES', 'MIERCOLES', 'JUEVES', 'VIERNES', 'SABADO', 'DOMINGO') NOT NULL,
-    hora_apertura TIME NOT NULL,
-    hora_cierre TIME NOT NULL,
-    FOREIGN KEY (espacio_id) REFERENCES espacios(id) ON DELETE CASCADE
-);
+DROP TABLE IF EXISTS `bloqueos_horario`;
+DROP TABLE IF EXISTS `horarios_atencion`;
+DROP TABLE IF EXISTS `zonas_barbecue`;
+DROP TABLE IF EXISTS `salones_comunales`;
+DROP TABLE IF EXISTS `canchas_tejo`;
+DROP TABLE IF EXISTS `canchas_futbol`;
+DROP TABLE IF EXISTS `espacios`;
 
-CREATE TABLE IF NOT EXISTS bloqueos_horario (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    espacio_id INT NOT NULL,
-    reserva_id INT NOT NULL,
-    fecha DATE NOT NULL,
-    hora_inicio TIME NOT NULL,
-    hora_fin TIME NOT NULL,
-    tipo VARCHAR(50) DEFAULT 'RESERVA',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (espacio_id) REFERENCES espacios(id) ON DELETE CASCADE
-);
+SET FOREIGN_KEY_CHECKS = 1;
 
-INSERT IGNORE INTO espacios (id, nombre, tipo, capacidad, jugadores_por_equipo, dimensiones)
-VALUES (1, 'Cancha Sintética Fútbol 8', 'FUTBOL', 16, 8, '40x20m');
+CREATE TABLE `espacios` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `nombre` VARCHAR(150) NOT NULL,
+  `capacidad` INT NOT NULL DEFAULT 10,
+  `estado` VARCHAR(50) NOT NULL DEFAULT 'DISPONIBLE',
+  `tipo` VARCHAR(50) NOT NULL COMMENT 'CANCHA_FUTBOL, CANCHA_TEJO, SALON_COMUNAL, ZONA_BARBECUE'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE `canchas_futbol` (
+  `espacio_id` INT PRIMARY KEY,
+  `jugadores_por_equipo` INT NOT NULL DEFAULT 8,
+  `dimensiones` VARCHAR(100) NOT NULL DEFAULT '50x30m',
+  CONSTRAINT `fk_cf_espacio` FOREIGN KEY (`espacio_id`) REFERENCES `espacios` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-INSERT IGNORE INTO espacios (id, nombre, tipo, capacidad, numero_carriles)
-VALUES (2, 'Pistas de Tejo Tradicional', 'TEJO', 20, 4);
+CREATE TABLE `canchas_tejo` (
+  `espacio_id` INT PRIMARY KEY,
+  `numero_carriles` INT NOT NULL DEFAULT 2,
+  CONSTRAINT `fk_ct_espacio` FOREIGN KEY (`espacio_id`) REFERENCES `espacios` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-INSERT IGNORE INTO espacios (id, nombre, tipo, capacidad, tiene_sonido)
-VALUES (3, 'Salón de Eventos Principal', 'SALON_COMUNAL', 80, 1);
+CREATE TABLE `salones_comunales` (
+  `espacio_id` INT PRIMARY KEY,
+  `tiene_sonido` TINYINT(1) NOT NULL DEFAULT 1,
+  CONSTRAINT `fk_sc_espacio` FOREIGN KEY (`espacio_id`) REFERENCES `espacios` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-INSERT IGNORE INTO espacios (id, nombre, tipo, capacidad, numero_asadores, tiene_mesas)
-VALUES (4, 'Zona BBQ Los Rosas', 'BARBECUE', 30, 2, 1);
+CREATE TABLE `zonas_barbecue` (
+  `espacio_id` INT PRIMARY KEY,
+  `numero_asadores` INT NOT NULL DEFAULT 2,
+  `tiene_mesas` TINYINT(1) NOT NULL DEFAULT 1,
+  CONSTRAINT `fk_zb_espacio` FOREIGN KEY (`espacio_id`) REFERENCES `espacios` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-INSERT INTO horarios_atencion (espacio_id, dia, hora_apertura, hora_cierre)
-SELECT e.id, d.dia, '06:00:00', '22:00:00'
-FROM espacios e
-CROSS JOIN (
-    SELECT 'LUNES' AS dia UNION SELECT 'MARTES' UNION SELECT 'MIERCOLES' 
-    UNION SELECT 'JUEVES' UNION SELECT 'VIERNES' UNION SELECT 'SABADO' UNION SELECT 'DOMINGO'
-) d
-WHERE NOT EXISTS (
-    SELECT 1 FROM horarios_atencion ha 
-    WHERE ha.espacio_id = e.id AND ha.dia = d.dia
-);
+CREATE TABLE `horarios_atencion` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `espacio_id` INT NOT NULL,
+  `dia` VARCHAR(20) NOT NULL COMMENT 'Lunes, Martes, ..., Domingo',
+  `hora_apertura` TIME NOT NULL,
+  `hora_cierre` TIME NOT NULL,
+  CONSTRAINT `fk_ha_espacio` FOREIGN KEY (`espacio_id`) REFERENCES `espacios` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `bloqueos_horario` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `espacio_id` INT NOT NULL,
+  `reserva_id` INT DEFAULT NULL COMMENT 'ID asociado en ms-reservas o NULL si es mantenimiento',
+  `fecha` DATE NOT NULL,
+  `hora_inicio` TIME NOT NULL,
+  `hora_fin` TIME NOT NULL,
+  `tipo` VARCHAR(50) NOT NULL DEFAULT 'RESERVA' COMMENT 'RESERVA, MANTENIMIENTO, EVENTO_INTERNO',
+  INDEX `idx_espacio_fecha` (`espacio_id`, `fecha`),
+  INDEX `idx_reserva` (`reserva_id`),
+  CONSTRAINT `fk_bh_espacio` FOREIGN KEY (`espacio_id`) REFERENCES `espacios` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT INTO `espacios` (`id`, `nombre`, `capacidad`, `estado`, `tipo`) VALUES
+(1, 'Cancha Sintética Fútbol 8', 16, 'DISPONIBLE', 'CANCHA_FUTBOL'),
+(2, 'Cancha de Tejo Tradicional', 10, 'DISPONIBLE', 'CANCHA_TEJO'),
+(3, 'Salón Comunal para Eventos', 60, 'DISPONIBLE', 'SALON_COMUNAL'),
+(4, 'Zona Barbecue (BBQ)', 25, 'DISPONIBLE', 'ZONA_BARBECUE');
+
+INSERT INTO `canchas_futbol` (`espacio_id`, `jugadores_por_equipo`, `dimensiones`) VALUES
+(1, 8, '55x35 metros sintética pro');
+
+INSERT INTO `canchas_tejo` (`espacio_id`, `numero_carriles`) VALUES
+(2, 3);
+
+INSERT INTO `salones_comunales` (`espacio_id`, `tiene_sonido`) VALUES
+(3, 1);
+
+INSERT INTO `zonas_barbecue` (`espacio_id`, `numero_asadores`, `tiene_mesas`) VALUES
+(4, 3, 1);
+
+-- Horarios de lunes a domingo de 06:00 a 22:00 para la Cancha de Fútbol
+INSERT INTO `horarios_atencion` (`espacio_id`, `dia`, `hora_apertura`, `hora_cierre`) VALUES
+(1, 'Lunes',     '06:00:00', '22:00:00'),
+(1, 'Martes',    '06:00:00', '22:00:00'),
+(1, 'Miércoles', '06:00:00', '22:00:00'),
+(1, 'Jueves',    '06:00:00', '22:00:00'),
+(1, 'Viernes',   '06:00:00', '22:00:00'),
+(1, 'Sábado',    '06:00:00', '22:00:00'),
+(1, 'Domingo',   '06:00:00', '22:00:00'),
+(2, 'Sábado',    '08:00:00', '20:00:00'),
+(2, 'Domingo',   '08:00:00', '20:00:00'),
+(3, 'Sábado',    '09:00:00', '23:00:00'),
+(3, 'Domingo',   '09:00:00', '23:00:00'),
+(4, 'Sábado',    '10:00:00', '20:00:00'),
+(4, 'Domingo',   '10:00:00', '20:00:00');

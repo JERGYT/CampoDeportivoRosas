@@ -10,5 +10,6 @@ return function(App $app) {
         $group->get('/consultar', [DisponibilidadController::class, 'consultar']);
         $group->get('/cronograma', [DisponibilidadController::class, 'cronograma']);
         $group->post('/bloquear', [DisponibilidadController::class, 'bloquear']);
+        $group->post('/liberar', [DisponibilidadController::class, 'liberar']);
     });
 };

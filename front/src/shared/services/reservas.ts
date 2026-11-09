@@ -54,6 +54,13 @@ export interface ReservasService {
   recibir(body: { reserva_id: number }): Promise<any>;
   registrarDanos(body: { reserva_id: number; danos: number }): Promise<any>;
   liquidar(body: { reserva_id: number; metodo_pago: string }): Promise<any>;
+  iniciarCancelacion(body: { reserva_id: number }): Promise<any>;
+  confirmarCancelacion(body: {
+    reserva_id: number;
+    motivo: string;
+    monto_devolucion: number;
+    metodo_devolucion: string;
+  }): Promise<any>;
 }
 
 const base = () => apiConfig.reservasUrl;
@@ -74,6 +81,8 @@ const api: ReservasService = {
   recibir: (body) => request(base(), '/view/recibir', { method: 'POST', body }),
   registrarDanos: (body) => request(base(), '/view/registrardanos', { method: 'POST', body }),
   liquidar: (body) => request(base(), '/view/liquidar', { method: 'POST', body }),
+  iniciarCancelacion: (body) => request(base(), '/view/iniciarcancelacion', { method: 'POST', body }),
+  confirmarCancelacion: (body) => request(base(), '/view/confirmarcancelacion', { method: 'POST', body }),
 };
 
 /**
@@ -163,6 +172,8 @@ const mock: ReservasService = {
   async recibir() { return { status: 'success', mensaje: 'Espacio recibido.' }; },
   async registrarDanos() { return { status: 'success', mensaje: 'Daños registrados.' }; },
   async liquidar() { return { status: 'success', mensaje: 'Liquidación completada.' }; },
+  async iniciarCancelacion() { return { status: 'success', reserva: {} }; },
+  async confirmarCancelacion() { return { status: 'success', mensaje: 'Cancelada', auditoria: {} }; },
 };
 
 export const reservasService: ReservasService = api;
