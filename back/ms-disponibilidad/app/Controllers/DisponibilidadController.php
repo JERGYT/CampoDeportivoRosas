@@ -82,4 +82,36 @@ class DisponibilidadController {
         $response->getBody()->write(json_encode(["status" => $bloqueo ? "success" : "error"]));
         return $response->withHeader('Content-Type', 'application/json')->withStatus($bloqueo ? 200 : 500);
     }
+    
+    public function liberar(Request $request, Response $response): Response {
+        $data = json_decode((string)$request->getBody(), true);
+        $reservaId = $data['reserva_id'] ?? null;
+
+        if (!$reservaId) {
+            $response->getBody()->write(json_encode([
+                "status" => "error",
+                "mensaje" => "Se requiere el reserva_id para liberar el horario."
+            ]));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(400);
+        }
+
+        try {
+            $eliminados = \Illuminate\Database\Capsule\Manager::table('bloqueos_horario')
+                ->where('reserva_id', $reservaId)
+                ->delete();
+
+            $response->getBody()->write(json_encode([
+                "status" => "success",
+                "mensaje" => "Horario liberado exitosamente en la agenda del espacio.",
+                "registros_liberados" => $eliminados
+            ]));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(200);
+        } catch (\Exception $e) {
+            $response->getBody()->write(json_encode([
+                "status" => "error",
+                "mensaje" => "Error al liberar la agenda: " . $e->getMessage()
+            ]));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(500);
+        }
+    }
 }

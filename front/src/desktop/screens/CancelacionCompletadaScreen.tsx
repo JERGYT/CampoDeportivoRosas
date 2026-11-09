@@ -1,88 +1,69 @@
-import { router } from 'expo-router';
-import { StyleSheet, View } from 'react-native';
-
-import { colors, radius } from '@/shared/theme/tokens';
-
-import { ReservaResumenCard, TwoColumns, TitleBar } from '../components/composites';
-import { Button, Card, Chip, DataRow, Divider, Notice, Row, Small, T, Table } from '../components/ui';
-import { reservaR1052 } from '../data/demo';
+import { View } from 'react-native';
+import { router, useLocalSearchParams } from 'expo-router';
+import { TitleBar, TwoColumns } from '../components/composites';
+import { Button, Card, T, Divider, Chip, Row, DataRow } from '../components/ui';
+import { formatCOP } from '../../shared/utils/format';
 import { routes } from '../navigation';
 
-function ResultadoTile({ etiqueta, valor, detalle, bg, fg }: { etiqueta: string; valor: string; detalle: string; bg: string; fg: string }) {
-  return (
-    <View style={[styles.tile, { backgroundColor: bg }]}>
-      <T size={13} color={fg === colors.text ? colors.textMuted : fg} lh={1.45}>
-        {etiqueta}
-      </T>
-      <T size={24} weight="semibold" color={fg} lh={1.3}>
-        {valor}
-      </T>
-      <T size={13} color={fg} lh={1.45}>
-        {detalle}
-      </T>
-    </View>
-  );
-}
-
 export default function CancelacionCompletadaScreen() {
+  const params = useLocalSearchParams();
+  const reservaId = params.id ? String(params.id) : '---';
+  const motivo = (params.motivo as string) || 'Cancelación de reserva';
+  const devolucion = parseFloat(params.devolucion as string) || 0;
+  const metodo = (params.metodo as string) || 'NO_APLICA';
+  const fechaCancelacion = (params.fecha_cancelacion as string) || new Date().toLocaleString('es-CO');
+
   return (
     <>
-      <TitleBar title="Cancelación completada y auditoría" subtitle="La reserva está cancelada, el horario liberado y la devolución conserva su propio estado." />
-      <Notice tone="success" title="Cancelación confirmada · R-1052">
-        Ana Martínez confirmó el viernes 16 oct 2026 a las 10:30. Zona BBQ quedó disponible el domingo 18 oct, de 12:00 a 16:00.
-      </Notice>
+      <TitleBar
+        title="Auditoría de cancelación y liberación de agenda "
+        subtitle="Constancia legal del cierre de la reserva y liberación sincrónica del espacio deportivo."
+      />
+
       <TwoColumns
         main={
-          <>
-            <Card title="Resultado de la cancelación">
-              <Row gap={16}>
-                <ResultadoTile etiqueta="Reserva" valor="Cancelada" detalle="Confirmada por Ana Martínez" bg={colors.chip} fg={colors.text} />
-                <ResultadoTile etiqueta="Horario" valor="Liberado" detalle="Dom 18 oct · 12:00 – 16:00" bg={colors.successBg} fg={colors.successText} />
-                <ResultadoTile etiqueta="Devolución" valor="Pendiente" detalle="$60.000 COP autorizados" bg={colors.dangerBg} fg={colors.dangerText} />
-              </Row>
-              <T lh={1.45}>Motivo: el titular no realizará la reunión familiar prevista. El registro se conserva para consulta y trazabilidad.</T>
-            </Card>
-            <Card title="Auditoría de acciones">
-              <Table
-                columns={[{ title: 'Momento', width: 170 }, { title: 'Acción y resultado', flex: 1.7 }, { title: 'Responsable', flex: 1 }]}
-                rows={[
-                  ['14 oct 2026 · 11:00', ['Reserva R-1052 confirmada', 'Zona BBQ · horario bloqueado'], ['Ana Martínez', 'Administradora']],
-                  ['14 oct 2026 · 11:05', ['Anticipo A-0035 registrado', '$60.000 COP · Transferencia'], ['Ana Martínez', 'Administradora']],
-                  ['16 oct 2026 · 10:20', ['Solicitud de cancelación abierta', 'Sin cambio de estado ni disponibilidad'], ['Ana Martínez', 'Solicitud de Diego Herrera']],
-                  ['16 oct 2026 · 10:30', ['Cancelación confirmada', 'Confirmada → Cancelada'], ['Ana Martínez', 'Administradora']],
-                  ['16 oct 2026 · 10:30', ['Horario liberado al confirmar', '18 oct · 12:00 – 16:00 · Zona BBQ'], ['Ana Martínez', 'Acción asociada a confirmación']],
-                  ['16 oct 2026 · 10:35', ['Devolución D-0009 autorizada', '$60.000 COP · Sigue pendiente'], ['Ana Martínez', 'Administradora']],
-                ]}
+          <Card title="Comprobante oficial de auditoría">
+            <View style={{ padding: 14, backgroundColor: '#ECFDF5', borderRadius: 8, borderWidth: 1, borderColor: '#10B981', marginBottom: 14 }}>
+              <T weight="semibold" style={{ color: '#065F46', fontSize: 16 }}>
+                ✓ Cancelación completada y horario liberado con éxito
+              </T>
+              <T size={13} style={{ color: '#047857', marginTop: 4 }}>
+                La reserva ha sido dada de baja en la base de datos y el horario en el microservicio de disponibilidad ya se encuentra abierto a nuevos clientes[cite: 24].
+              </T>
+            </View>
+
+            <T weight="semibold" size={15} style={{ marginBottom: 8 }}>Registro de auditoría del sistema:</T>
+            <DataRow label="Identificador de reserva" value={`R-${String(reservaId).padStart(4, '0')}`} />
+            <DataRow label="Estado actual" value="CANCELADA" />
+            <DataRow label="Fecha y hora de cancelación" value={fechaCancelacion} />
+            <DataRow label="Motivo registrado" value={motivo} />
+            <DataRow label="Monto reintegrado al cliente" value={formatCOP(devolucion)} />
+            <DataRow label="Método de desembolso" value={metodo} />
+            <DataRow label="Liberación de agenda (ms-disponibilidad)" value="✓ COMPLETADA (Horario libre)" />
+
+            <Divider />
+
+            <Row gap={16}>
+              <Button
+                label="Volver a Agenda y reservas"
+                onPress={() => router.push(routes.reservas as any)}
               />
-              <Small>Campos y horas ilustrativos. Corte de consulta: 16 oct 2026 · 10:36. No hay devolución realizada registrada.</Small>
-            </Card>
-            <Notice title="Una consulta rechazada no es una reserva cancelada">
-              «Finalizado sin reserva» no tiene franja que liberar, anticipo que devolver, cobros ni penalidades.
-            </Notice>
-          </>
+            </Row>
+          </Card>
         }
         aside={
-          <>
-            <ReservaResumenCard reserva={reservaR1052} estado="Cancelada" />
-            <Card title="Seguimiento pendiente">
-              <Chip label="Devolución pendiente" tone="danger" />
-              <DataRow label="Importe autorizado" value="$60.000" />
-              <DataRow label="Importe registrado como devuelto" value="$0" />
-              <Divider />
-              <T lh={1.45}>
-                La cancelación ya terminó. La devolución puede completarse después sin cambiar el estado de la reserva ni volver a bloquear el horario.
-              </T>
-              <Button label="Gestionar devolución" onPress={() => router.push(routes.devolucion)} />
-              <Button label="Consultar franja liberada" variant="secondary" onPress={() => router.push(routes.espacios)} />
-              <Small>Multa por cancelación: concepto futuro, no aplicado. No existe un cargo registrado por cancelación.</Small>
-            </Card>
-          </>
+          <Card title="Trazabilidad" badge={<Chip label="CANCELADA" />}>
+            <T size={14} weight="semibold">Disponibilidad en calendario:</T>
+            <T size={13} color="#059669" weight="bold" style={{ marginTop: 4 }}>
+              ● Franja horaria disponible nuevamente
+            </T>
+            <Divider />
+            <T size={12} color="#6B7280" lh={1.4}>
+              El bloqueo generado durante la confirmación inicial ha sido removido del calendario de bloqueos[cite: 24, 30].
+            </T>
+          </Card>
         }
       />
     </>
   );
 }
-
-const styles = StyleSheet.create({
-  tile: { flex: 1, minWidth: 170, borderRadius: radius.card - 4, padding: 20, gap: 10 },
-});

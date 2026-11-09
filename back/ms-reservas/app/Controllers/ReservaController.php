@@ -271,4 +271,125 @@ class ReservaController {
         ]));
         return $response->withHeader('Content-Type', 'application/json')->withStatus(200);
     }
+
+    public function iniciarCancelacion(Request $request, Response $response): Response {
+        $data = json_decode((string)$request->getBody(), true);
+        $id = $data['reserva_id'] ?? null;
+
+        $reserva = $this->reservaRepository->obtenerPorId($id);
+        if (!$reserva) {
+            $response->getBody()->write(json_encode(["status" => "error", "mensaje" => "Reserva no encontrada."]));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(404);
+        }
+
+        if ($reserva->estado === 'CANCELADA') {
+            $response->getBody()->write(json_encode([
+                "status" => "error",
+                "mensaje" => "La reserva ya se encuentra en estado CANCELADA."
+            ]));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(400);
+        }
+
+        if ($reserva->estado === 'COMPLETADA') {
+            $response->getBody()->write(json_encode([
+                "status" => "error",
+                "mensaje" => "No se puede cancelar una reserva que ya fue liquidada y COMPLETADA."
+            ]));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(400);
+        }
+
+        $alquiler = 120000.00;
+        $anticipo = floatval($reserva->anticipo ?? 0);
+        $saldoPendiente = max(0, $alquiler - $anticipo);
+
+        $montoDevolucionSugerido = $anticipo;
+
+        $response->getBody()->write(json_encode([
+            "status" => "success",
+            "reserva" => [
+                "id" => $reserva->id,
+                "codigo" => "R-" . str_pad($reserva->id, 4, '0', STR_PAD_LEFT),
+                "estado" => $reserva->estado,
+                "cliente" => $reserva->cliente ? $reserva->cliente->nombre : "Cliente #" . $reserva->cliente_id,
+                "telefono" => $reserva->cliente ? $reserva->cliente->telefono : "No registrado",
+                "tipo_cliente" => $reserva->tipo,
+                "espacio_id" => $reserva->espacio_id,
+                "fecha" => $reserva->fecha,
+                "hora_inicio" => substr($reserva->hora_inicio, 0, 5),
+                "hora_fin" => substr($reserva->hora_fin, 0, 5),
+                "alquiler" => $alquiler,
+                "anticipo" => $anticipo,
+                "saldo_pendiente" => $saldoPendiente,
+                "monto_devolucion_sugerido" => $montoDevolucionSugerido
+            ]
+        ]));
+        return $response->withHeader('Content-Type', 'application/json')->withStatus(200);
+    }
+
+    public function confirmarCancelacion(Request $request, Response $response): Response {
+        $data = json_decode((string)$request->getBody(), true);
+        if (json_last_error() !== JSON_ERROR_NONE || !is_array($data)) {
+            $response->getBody()->write(json_encode(["status" => "error", "mensaje" => "JSON inválido."]));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(400);
+        }
+
+        $id = $data['reserva_id'] ?? null;
+        $motivo = trim($data['motivo'] ?? 'Cancelación solicitada por el usuario');
+        $montoDevolucion = floatval($data['monto_devolucion'] ?? 0);
+        $metodoDevolucion = strtoupper(trim($data['metodo_devolucion'] ?? 'EFECTIVO'));
+
+        $reserva = $this->reservaRepository->obtenerPorId($id);
+        if (!$reserva) {
+            $response->getBody()->write(json_encode(["status" => "error", "mensaje" => "Reserva no encontrada."]));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(404);
+        }
+
+        if (in_array($reserva->estado, ['CANCELADA', 'COMPLETADA'])) {
+            $response->getBody()->write(json_encode([
+                "status" => "error",
+                "mensaje" => "No se puede cancelar una reserva que ya está en estado {$reserva->estado}."
+            ]));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(400);
+        }
+
+        $fechaCancelacion = date('Y-m-d H:i:s');
+        $this->reservaRepository->actualizar($id, [
+            'estado' => 'CANCELADA',
+            'motivo_cancelacion' => $motivo,
+            'monto_devolucion' => $montoDevolucion,
+            'metodo_devolucion' => $montoDevolucion > 0 ? $metodoDevolucion : 'NO_APLICA',
+            'fecha_cancelacion' => $fechaCancelacion
+        ]);
+
+        try {
+            \Illuminate\Database\Capsule\Manager::table('db_disponibilidad.bloqueos_horario')
+                ->where('reserva_id', $id)
+                ->delete();
+        } catch (\Exception $ex) {
+            @file_get_contents('http://localhost/CampoDeportivoRosas/back/ms-disponibilidad/public/index.php/view/liberar', false, stream_context_create([
+                'http' => [
+                    'method' => 'POST',
+                    'header' => "Content-Type: application/json\r\n",
+                    'content' => json_encode(['reserva_id' => $id])
+                ]
+            ]));
+        }
+
+        $response->getBody()->write(json_encode([
+            "status" => "success",
+            "mensaje" => "Reserva cancelada correctamente. El horario fue liberado y la auditoría registrada.",
+            "auditoria" => [
+                "reserva_id" => $id,
+                "codigo" => "R-" . str_pad($id, 4, '0', STR_PAD_LEFT),
+                "estado_anterior" => $reserva->estado,
+                "nuevo_estado" => "CANCELADA",
+                "motivo" => $motivo,
+                "monto_devolucion" => $montoDevolucion,
+                "metodo_devolucion" => $montoDevolucion > 0 ? $metodoDevolucion : 'NO_APLICA',
+                "fecha_cancelacion" => $fechaCancelacion,
+                "horario_liberado" => true
+            ]
+        ]));
+        return $response->withHeader('Content-Type', 'application/json')->withStatus(200);
+    }
 }

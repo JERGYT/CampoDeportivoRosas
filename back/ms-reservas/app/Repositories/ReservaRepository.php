@@ -24,6 +24,26 @@ class ReservaRepository {
                     $table->string('metodo_pago', 50)->nullable();
                 });
             }
+            if (!Capsule::schema()->hasColumn('reservas', 'motivo_cancelacion')) {
+                Capsule::schema()->table('reservas', function ($table) {
+                    $table->string('motivo_cancelacion', 255)->nullable();
+                });
+            }
+            if (!Capsule::schema()->hasColumn('reservas', 'monto_devolucion')) {
+                Capsule::schema()->table('reservas', function ($table) {
+                    $table->decimal('monto_devolucion', 10, 2)->default(0.00);
+                });
+            }
+            if (!Capsule::schema()->hasColumn('reservas', 'metodo_devolucion')) {
+                Capsule::schema()->table('reservas', function ($table) {
+                    $table->string('metodo_devolucion', 50)->nullable();
+                });
+            }
+            if (!Capsule::schema()->hasColumn('reservas', 'fecha_cancelacion')) {
+                Capsule::schema()->table('reservas', function ($table) {
+                    $table->dateTime('fecha_cancelacion')->nullable();
+                });
+            }
         } catch (\Exception $e) {}
     }
 

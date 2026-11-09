@@ -1,108 +1,142 @@
-import { router } from 'expo-router';
-import { useState } from 'react';
-
-import { ReservaResumenCard, TitleBar, TwoColumns } from '../components/composites';
-import { DateField } from '../components/DatePicker';
-import { Button, Card, Chip, DataRow, Divider, Field, Notice, Row, Small, Timeline } from '../components/ui';
-import { reservaR1052 } from '../data/demo';
+import { useState, useEffect } from 'react';
+import { router, useLocalSearchParams } from 'expo-router';
+import { TitleBar, TwoColumns } from '../components/composites';
+import { Button, Card, Field, SelectField, T, Divider, Chip, Row, DataRow } from '../components/ui';
+import { reservasService } from '../../shared/services/reservas';
+import { formatCOP } from '../../shared/utils/format';
 import { routes } from '../navigation';
 
 export default function DevolucionScreen() {
-  const [autorizado, setAutorizado] = useState('$60.000');
-  const [justificacion, setJustificacion] = useState(
-    'Ana Martínez autoriza devolver el anticipo registrado tras revisar la solicitud de Diego Herrera. Importe decidido para este caso, sin regla porcentual.',
-  );
-  const [autorizadoPor, setAutorizadoPor] = useState('Ana Martínez · Administradora');
-  const [momento, setMomento] = useState('16/10/2026 · 10:35');
-  const [beneficiario, setBeneficiario] = useState('Diego Herrera');
-  const [metodo, setMetodo] = useState('Transferencia');
-  const [destino, setDestino] = useState('Cuenta del titular · terminación 0146');
-  const [referencia, setReferencia] = useState('');
-  const [fechaEfectiva, setFechaEfectiva] = useState('');
-  const [comprobante, setComprobante] = useState('');
+  const params = useLocalSearchParams();
+  const reservaId = Number(params.id) || 0;
+  const motivoParam = typeof params.motivo === 'string' ? params.motivo : 'Cancelación de reserva';
 
-  // Solo se habilita con los datos de la operación efectivamente realizada.
-  const listo = referencia.trim() !== '' && fechaEfectiva.trim() !== '' && comprobante.trim() !== '';
+  const [detalle, setDetalle] = useState<any | null>(null);
+  const [montoDevolucion, setMontoDevolucion] = useState('0');
+  const [metodoDevolucion, setMetodoDevolucion] = useState('TRANSFERENCIA');
+  const [motivo, setMotivo] = useState(motivoParam);
+  const [cargando, setCargando] = useState(false);
+
+  useEffect(() => {
+    if (reservaId <= 0) return;
+    let activo = true;
+
+    reservasService.iniciarCancelacion({ reserva_id: reservaId }).then((res: any) => {
+      if (activo && res?.reserva) {
+        setDetalle(res.reserva);
+        setMontoDevolucion(String(res.reserva.anticipo || 0));
+      }
+    });
+
+    return () => {
+      activo = false;
+    };
+  }, [reservaId]);
+
+  const onConfirmarDevolucion = () => {
+    if (cargando) return;
+    setCargando(true);
+
+    reservasService
+      .confirmarCancelacion({
+        reserva_id: reservaId,
+        motivo,
+        monto_devolucion: parseFloat(montoDevolucion) || 0,
+        metodo_devolucion: metodoDevolucion,
+      })
+      .then((res: any) => {
+        const fechaAuditoria = res.auditoria?.fecha_cancelacion || new Date().toISOString();
+        router.push(
+          `${routes.cancelacionCompletada}?id=${reservaId}&motivo=${encodeURIComponent(motivo)}&devolucion=${montoDevolucion}&metodo=${encodeURIComponent(metodoDevolucion)}&fecha_cancelacion=${encodeURIComponent(fechaAuditoria)}` as any
+        );
+      })
+      .catch((err: any) => {
+        alert(err.message || 'Error al procesar la devolución.');
+      })
+      .finally(() => {
+        setCargando(false);
+      });
+  };
+
+  const anticipoOriginal = Number(detalle?.anticipo || 0);
+  const reintegro = parseFloat(montoDevolucion) || 0;
+  const retencion = Math.max(0, anticipoOriginal - reintegro);
 
   return (
     <>
-      <TitleBar title="Devolución del anticipo" subtitle="Autoriza el importe manualmente y registra la devolución solo cuando haya sido realizada." />
-      <Notice title="Cancelación confirmada · devolución pendiente">
-        R-1052 se canceló el viernes 16 oct 2026 a las 10:30. La franja ya está libre; el anticipo aún no se ha devuelto.
-      </Notice>
+      <TitleBar
+        title="Gestión de devolución de anticipo "
+        subtitle="Calcula el reintegro económico del cliente, define retenciones y registra el método de reembolso."
+      />
+
       <TwoColumns
         main={
-          <>
-            <Card title="Autorización de devolución" badge={<Chip label="Autorizada" />}>
-              <Row gap={16}>
-                <Field label="Anticipo registrado · COP" value="$60.000" helper="Registro original A-0035 · 14 oct 2026" style={{ flex: 1 }} />
-                <Field
-                  label="Importe autorizado · COP"
-                  value={autorizado}
-                  onChangeText={setAutorizado}
-                  helper="Definido manualmente; no supera el anticipo."
-                  style={{ flex: 1 }}
-                />
-              </Row>
-              <Field label="Justificación del importe" value={justificacion} onChangeText={setJustificacion} multiline />
-              <Row gap={16}>
-                <Field label="Autorizado por" value={autorizadoPor} onChangeText={setAutorizadoPor} style={{ flex: 1 }} />
-                <Field label="Momento de autorización" value={momento} onChangeText={setMomento} style={{ flex: 1 }} />
-              </Row>
-              <Notice title="Sin política de porcentaje ni plazo">
-                El importe autorizado es específico de este caso. No se presume un porcentaje de devolución ni una fecha límite.
-              </Notice>
-            </Card>
-            <Card title="Preparación del registro" badge={<Chip label="Pendiente" />}>
-              <Row gap={16}>
-                <Field label="Beneficiario" value={beneficiario} onChangeText={setBeneficiario} style={{ flex: 1 }} />
-                <Field label="Método previsto" value={metodo} onChangeText={setMetodo} style={{ flex: 1 }} />
-              </Row>
-              <Field label="Destino previsto" value={destino} onChangeText={setDestino} />
-              <Row gap={16}>
-                <Field label="Referencia de la devolución" value={referencia} onChangeText={setReferencia} placeholder="Pendiente de realizar" style={{ flex: 1 }} />
-                <DateField label="Fecha efectiva de devolución" value={fechaEfectiva} onChange={setFechaEfectiva} placeholder="Sin registrar" style={{ flex: 1 }} />
-              </Row>
-              <Field
-                label="Comprobante de devolución"
-                value={comprobante}
-                onChangeText={setComprobante}
-                placeholder="Sin comprobante · la devolución no ha ocurrido"
+          <Card title="Liquidación de devolución de anticipo">
+            <T weight="semibold" size={15}>
+              Datos del titular y pago previo:
+            </T>
+            <DataRow label="Código de reserva" value={detalle?.codigo || `R-${reservaId}`} />
+            <DataRow label="Cliente titular" value={detalle?.cliente || 'Cliente'} />
+            <DataRow label="Anticipo en custodia " value={formatCOP(anticipoOriginal)} />
+
+            <Divider />
+
+            <Field
+              label="Monto a devolver al cliente · COP"
+              value={montoDevolucion}
+              onChangeText={setMontoDevolucion}
+              placeholder="Ej: 50000"
+            />
+            <T size={12} color="#6B7280" style={{ marginTop: -8, marginBottom: 12 }}>
+              Puedes ajustar el monto si aplica retención o penalidad según la política comercial.
+            </T>
+
+            <SelectField
+              label="Método de desembolso de la devolución"
+              value={metodoDevolucion}
+              onChange={setMetodoDevolucion}
+              options={[
+                { label: 'Transferencia bancaria / Nequi / Daviplata', value: 'TRANSFERENCIA' },
+                { label: 'Efectivo en caja', value: 'EFECTIVO' },
+              ]}
+            />
+
+            <Field
+              label="Motivo formal de la cancelación"
+              value={motivo}
+              onChangeText={setMotivo}
+            />
+
+            <Divider />
+
+            <Row gap={16}>
+              <Button
+                label={cargando ? 'Procesando...' : 'Reintegrar anticipo y confirmar cancelación >'}
+                loading={cargando}
+                onPress={() => {
+                  onConfirmarDevolucion();
+                }}
               />
               <Button
-                label="Registrar devolución realizada"
-                variant={listo ? 'primary' : 'disabled'}
-                onPress={() => router.push(routes.cancelacionCompletada)}
+                label="Regresar"
+                variant="secondary"
+                onPress={() => {
+                  router.push(routes.reservas as any);
+                }}
               />
-              <Small>Se habilita con los datos de la operación efectivamente realizada. Preparar o autorizar no equivale a devolver.</Small>
-            </Card>
-          </>
+            </Row>
+          </Card>
         }
         aside={
-          <>
-            <ReservaResumenCard reserva={reservaR1052} estado="Cancelada" />
-            <Card title="Estado del anticipo" badge={<Chip label="D-0009" />}>
-              <Chip label="Pendiente de devolución" tone="danger" />
-              <DataRow label="Anticipo recibido" value="$60.000" />
-              <DataRow label="Devolución autorizada" value={autorizado} />
-              <DataRow label="Devuelto hasta ahora" value="$0" />
-              <Divider />
-              <DataRow big label="Pendiente · COP" value={autorizado} />
-              <Small>El importe a devolver no puede superar el anticipo registrado. Si no hubo anticipo, no hay importe que devolver.</Small>
-              <Button label="Ver auditoría de cancelación" variant="secondary" onPress={() => router.navigate(routes.cancelacionCompletada)} />
-            </Card>
-            <Card title="Estados del proceso">
-              <Timeline
-                events={[
-                  { title: 'Pendiente · Estado actual', detail: 'Importe autorizado. Sin pago ni comprobante registrado.' },
-                  {
-                    title: 'Registrado · Después de devolver',
-                    detail: 'Incluye importe realizado, método, referencia, fecha y responsable. No es el estado actual.',
-                  },
-                ]}
-              />
-            </Card>
-          </>
+          <Card title="Balance financiero de cancelación" badge={<Chip label="" />}>
+            <DataRow label="Anticipo original" value={formatCOP(anticipoOriginal)} />
+            <DataRow label="Monto a reintegrar" value={formatCOP(reintegro)} />
+            <DataRow big label="Retención / Penalidad" value={formatCOP(retencion)} />
+            <Divider />
+            <T size={12} color="#6B7280">
+              Al confirmar, el estado cambiará a <T weight="bold">CANCELADA</T> y la agenda quedará desocupada en tiempo real[cite: 31].
+            </T>
+          </Card>
         }
       />
     </>

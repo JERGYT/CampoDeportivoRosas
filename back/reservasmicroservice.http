@@ -164,3 +164,29 @@ Content-Type: application/json
   "hora_fin": "12:00:00",
   "anticipo": -20000.00
 }
+
+### =========================================================================
+### SPRINT 4: ÉPICA 3 - CANCELACIONES Y AUDITORÍA (HU-14, HU-15, HU-17)
+### =========================================================================
+
+### HU-14: Recolectar datos antes de cancelar una reserva
+POST http://localhost/CampoDeportivoRosas/back/ms-reservas/public/index.php/view/iniciarcancelacion
+Content-Type: application/json
+
+{
+  "reserva_id": 6
+}
+
+### HU-15 y HU-17: Confirmar cancelación, devolver anticipo y liberar agenda
+POST http://localhost/CampoDeportivoRosas/back/ms-reservas/public/index.php/view/confirmarcancelacion
+Content-Type: application/json
+
+{
+  "reserva_id": 6,
+  "motivo": "Fuerza mayor por condiciones climáticas adversas",
+  "monto_devolucion": 50000.00,
+  "metodo_devolucion": "TRANSFERENCIA"
+}
+
+### HU-17 (Validación): Comprobar en ms-disponibilidad que el horario quedó libre
+GET http://localhost/CampoDeportivoRosas/back/ms-disponibilidad/public/index.php/view/consultar?espacio_id=1&fecha=2026-10-25&hora_inicio=18:00:00&hora_fin=22:00:00&tipo=PARTICULAR
