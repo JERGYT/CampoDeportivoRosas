@@ -1,20 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { disponibilidadService, type Espacio } from '@/shared/services';
+import { disponibilidadService, reservasService, type Espacio } from '@/shared/services';
 import { colors, radius } from '@/shared/theme/tokens';
+import { formatCOP } from '@/shared/utils/format';
 
 import { TitleBar, TwoColumns } from '../components/composites';
-import { Button, Card, Chip, DataRow, Divider, Field, Notice, Row, SelectField, Small, T, Table } from '../components/ui';
-
-const semanas = [
-  { label: '01–07 oct', total: '$300.000', anticipos: 120000, pagos: 180000 },
-  { label: '08–14 oct', total: '$420.000', anticipos: 140000, pagos: 280000 },
-  { label: '15–21 oct', total: '$540.000', anticipos: 200000, pagos: 340000 },
-  { label: '22–31 oct', total: '$420.000', anticipos: 140000, pagos: 280000 },
-];
-const MAX = 540000;
-const ALTURA = 196;
+import { DateRangeField } from '../components/DatePicker';
+import { Button, Card, Chip, DataRow, Divider, Notice, Row, SelectField, Small, T, Table } from '../components/ui';
 
 function Kpi({ titulo, valor, detalle }: { titulo: string; valor: string; detalle: string }) {
   return (
@@ -31,45 +24,234 @@ function Kpi({ titulo, valor, detalle }: { titulo: string; valor: string; detall
 }
 
 function Barra({ label, valor, total, color }: { label: string; valor: number; total: number; color: string }) {
+  const pct = total > 0 ? Math.min(100, Math.round((valor / total) * 100)) : 0;
   return (
     <View style={{ gap: 10 }}>
       <Row gap={16}>
         <T color={colors.textMuted} lh={1.45} style={{ flex: 1 }}>
           {label}
         </T>
-        <T weight="semibold">{valor}</T>
+        <T weight="semibold">
+          {valor} ({pct}%)
+        </T>
       </Row>
-      <View style={{ height: 8, width: `${(valor / total) * 100}%`, backgroundColor: color, borderRadius: 4 }} />
+      <View style={{ height: 8, width: '100%', backgroundColor: '#E5E7EB', borderRadius: 4, overflow: 'hidden' }}>
+        <View style={{ height: 8, width: `${pct}%`, backgroundColor: color, borderRadius: 4 }} />
+      </View>
     </View>
   );
 }
 
+const MAPA_ESPACIOS_BASE: Record<number, string> = {
+  1: 'Cancha Sintética Fútbol 8',
+  2: 'Cancha de Tejo Tradicional',
+  3: 'Salón Comunal para Eventos',
+  4: 'Zona Barbecue (BBQ)',
+};
+
 export default function ReportesScreen() {
   const [espacios, setEspacios] = useState<Espacio[]>([]);
-  const [periodo, setPeriodo] = useState('01 – 31 octubre 2026');
+  const [rango, setRango] = useState<{ desde: string; hasta: string }>({ desde: '', hasta: '' });
   const [espacio, setEspacio] = useState(0);
   const [perfil, setPerfil] = useState('todos');
   const [estado, setEstado] = useState('todos');
 
-  // GET /view/espacios (ms-disponibilidad) para el filtro de espacio
+  const [detalleBD, setDetalleBD] = useState<any[]>([]);
+  const [cargando, setCargando] = useState(true);
+  const [avisoExport, setAvisoExport] = useState<string | null>(null);
+
+  const cargarReporte = useCallback((desde?: string, hasta?: string) => {
+    setCargando(true);
+    setAvisoExport(null);
+    reservasService
+      .obtenerReportes({
+        desde: desde || undefined,
+        hasta: hasta || undefined,
+      })
+      .then((res: any) => {
+        if (res?.detalle && Array.isArray(res.detalle)) {
+          setDetalleBD(res.detalle);
+        } else {
+          setDetalleBD([]);
+        }
+      })
+      .catch(() => setDetalleBD([]))
+      .finally(() => setCargando(false));
+  }, []);
+
   useEffect(() => {
     disponibilidadService
-      .listarEspacios()
-      .then((r) => setEspacios(r.espacios))
+      .obtenerEspacios()
+      .then((esp) => setEspacios(esp || []))
       .catch(() => setEspacios([]));
+    reservasService
+      .obtenerReportes()
+      .then((res: any) => {
+        if (res?.detalle && Array.isArray(res.detalle)) {
+          setDetalleBD(res.detalle);
+        } else {
+          setDetalleBD([]);
+        }
+      })
+      .catch(() => setDetalleBD([]))
+      .finally(() => setCargando(false));
   }, []);
+
+  const nombreEspacio = useCallback(
+    (id: number) => {
+      const encontrado = espacios.find((e) => Number(e.id) === Number(id));
+      return encontrado?.nombre || MAPA_ESPACIOS_BASE[id] || `Espacio #${id}`;
+    },
+    [espacios],
+  );
+
+  const filasFiltradas = useMemo(() => {
+    return detalleBD.filter((r: any) => {
+      const est = String(r.estado || '').toUpperCase();
+      const cumpleEspacio = !espacio || Number(r.espacio_id) === Number(espacio);
+      const cumplePerfil = perfil === 'todos' || r.tipo === perfil;
+      const cumpleEstado =
+        estado === 'todos' ||
+        (estado === 'ACTIVA'
+          ? est === 'CONFIRMADA' || est === 'ENTREGADA' || est === 'RECIBIDA'
+          : est === estado);
+      return cumpleEspacio && cumplePerfil && cumpleEstado;
+    });
+  }, [detalleBD, espacio, perfil, estado]);
+
+  const metricas = useMemo(() => {
+    let totalReservas = 0;
+    let confirmadasActivas = 0;
+    let completadas = 0;
+    let canceladas = 0;
+    let ingresosAlquiler = 0;
+    let ingresosDanos = 0;
+    let totalDevoluciones = 0;
+
+    filasFiltradas.forEach((r: any) => {
+      totalReservas++;
+      const est = String(r.estado || 'CONFIRMADA').toUpperCase();
+      const anticipo = Number(r.anticipo) || 0;
+      const danos = Number(r.danos) || 0;
+      const devolucion = Number(r.devolucion) || 0;
+
+      if (est === 'CANCELADA') {
+        canceladas++;
+        const retencion = Math.max(0, anticipo - devolucion);
+        ingresosAlquiler += retencion;
+        totalDevoluciones += devolucion;
+      } else if (est === 'COMPLETADA') {
+        completadas++;
+        ingresosAlquiler += 120000;
+        ingresosDanos += danos;
+      } else {
+        confirmadasActivas++;
+        ingresosAlquiler += anticipo;
+      }
+    });
+
+    const ingresoNetoTotal = ingresosAlquiler + ingresosDanos;
+    return {
+      totalReservas,
+      confirmadasActivas,
+      completadas,
+      canceladas,
+      ingresosAlquiler,
+      ingresosDanos,
+      totalDevoluciones,
+      ingresoNetoTotal,
+    };
+  }, [filasFiltradas]);
+
+  const resumenPorEspacio = useMemo(() => {
+    const ids = espacios.length > 0 ? espacios.map((e) => Number(e.id)) : [1, 2, 3, 4];
+    const filas = ids.map((id) => {
+      const delEspacio = filasFiltradas.filter((r) => Number(r.espacio_id) === id);
+      const cant = delEspacio.length;
+      const canc = delEspacio.filter((r) => String(r.estado).toUpperCase() === 'CANCELADA').length;
+      const ing = delEspacio.reduce((acc, r) => acc + (Number(r.ingreso_neto) || 0), 0);
+      return [nombreEspacio(id), String(cant), String(canc), formatCOP(ing)];
+    });
+    filas.push([
+      'Total consolidado',
+      String(metricas.totalReservas),
+      String(metricas.canceladas),
+      formatCOP(metricas.ingresoNetoTotal),
+    ]);
+    return filas;
+  }, [espacios, filasFiltradas, metricas, nombreEspacio]);
+
+  const exportarCSV = () => {
+    const encabezados = [
+      'Codigo',
+      'Cliente',
+      'Tipo',
+      'Espacio',
+      'Fecha',
+      'Franja',
+      'Estado',
+      'Anticipo_COP',
+      'Danos_COP',
+      'Devolucion_COP',
+      'Ingreso_Neto_COP',
+      'Metodo_Pago',
+    ];
+    const lineas = filasFiltradas.map((r: any) => [
+      r.codigo,
+      `"${String(r.cliente || '').replace(/"/g, '""')}"`,
+      r.tipo,
+      `"${nombreEspacio(r.espacio_id)}"`,
+      r.fecha,
+      r.franja,
+      r.estado,
+      r.anticipo,
+      r.danos,
+      r.devolucion,
+      r.ingreso_neto,
+      r.metodo_pago,
+    ]);
+    const contenido = '\uFEFF' + [encabezados.join(','), ...lineas.map((l) => l.join(','))].join('\n');
+
+    if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+      const blob = new Blob([contenido], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `reporte_reservas_${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+    setAvisoExport(`Reporte CSV generado exitosamente con ${filasFiltradas.length} registros.`);
+  };
+
+  const limpiarFiltros = () => {
+    setRango({ desde: '', hasta: '' });
+    setEspacio(0);
+    setPerfil('todos');
+    setEstado('todos');
+    cargarReporte('', '');
+  };
 
   return (
     <>
-      <TitleBar title="Reportes de reservas e ingresos" subtitle="Concepto de consulta para el administrador. Todas las cifras son ilustrativas y no son métricas reales." />
-      <Notice title="Funcionalidad futura">
-        Exploración visual del módulo pendiente. Filtros, gráficos y exportación aún no están conectados a datos reales.
-      </Notice>
-      <Card title="Filtros del reporte" style={{ zIndex: 10 }}>
-        <Row gap={16}>
-          <Field label="Periodo" value={periodo} onChangeText={setPeriodo} style={{ flex: 1 }} />
+      <TitleBar
+        title="Reportes de reservas, ingresos y cancelaciones"
+        subtitle="Consulta indicadores financieros en tiempo real desde la base de datos y exporta el consolidado en CSV."
+      />
+
+      <Card title="Filtros del reporte" style={{ zIndex: 50, elevation: 50, overflow: 'visible' }}>
+        <Row gap={16} style={{ zIndex: 60, elevation: 60 }}>
+          <DateRangeField
+            label="Periodo (Desde – Hasta)"
+            desde={rango.desde}
+            hasta={rango.hasta}
+            onChange={(desde, hasta) => setRango({ desde, hasta })}
+            style={{ flex: 1.3 }}
+          />
           <SelectField
-            label="Espacio"
+            label="Espacio deportivo"
             value={espacio}
             onChange={setEspacio}
             options={[{ label: 'Todos los espacios', value: 0 }, ...espacios.map((e) => ({ label: e.nombre, value: e.id }))]}
@@ -93,63 +275,83 @@ export default function ReportesScreen() {
             onChange={setEstado}
             options={[
               { label: 'Todos los estados', value: 'todos' },
+              { label: 'Activas / Confirmadas', value: 'ACTIVA' },
               { label: 'Completada', value: 'COMPLETADA' },
-              { label: 'Confirmada', value: 'CONFIRMADA' },
               { label: 'Cancelada', value: 'CANCELADA' },
             ]}
             style={{ flex: 1 }}
           />
-          <Button label="Consultar demo" variant="secondary" />
+        </Row>
+        <Row gap={16} style={{ marginTop: 12 }}>
+          <Chip label={cargando ? 'Actualizando...' : `${filasFiltradas.length} registros en el reporte`} />
+          <View style={{ flex: 1 }} />
+          <Button label="Consultar en BD" onPress={() => cargarReporte(rango.desde, rango.hasta)} />
+          <Button label="Limpiar" variant="secondary" onPress={limpiarFiltros} />
         </Row>
       </Card>
 
+      {avisoExport ? (
+        <Notice tone="success" title="Exportación completada">
+          {avisoExport}
+        </Notice>
+      ) : null}
+
       <Row gap={16}>
-        <Kpi titulo="Reservas pactadas" valor="24" detalle="16 completadas · 4 confirmadas · 4 canceladas" />
-        <Kpi titulo="Ingresos registrados · COP" valor="$1.680.000" detalle="Anticipos $600.000 + pagos finales $1.080.000" />
-        <Kpi titulo="Cancelaciones confirmadas" valor="4" detalle="4 franjas liberadas en el conjunto demo" />
-        <Kpi titulo="Consultas sin reserva" valor="3" detalle="Fuera de las 24 reservas · Sin cobro" />
+        <Kpi
+          titulo="Reservas registradas"
+          valor={String(metricas.totalReservas)}
+          detalle={`${metricas.completadas} completadas · ${metricas.confirmadasActivas} activas · ${metricas.canceladas} canceladas`}
+        />
+        <Kpi
+          titulo="Ingreso neto total · COP"
+          valor={formatCOP(metricas.ingresoNetoTotal)}
+          detalle={`Alquiler ${formatCOP(metricas.ingresosAlquiler)} + daños ${formatCOP(metricas.ingresosDanos)}`}
+        />
+        <Kpi
+          titulo="Cancelaciones confirmadas"
+          valor={String(metricas.canceladas)}
+          detalle={`Devoluciones registradas: ${formatCOP(metricas.totalDevoluciones)}`}
+        />
+        <Kpi
+          titulo="Cobros por daños · COP"
+          valor={formatCOP(metricas.ingresosDanos)}
+          detalle="Reposición e implementos liquidados"
+        />
       </Row>
 
       <TwoColumns
         main={
           <>
-            <Card title="Ingresos registrados por semana" badge={<Chip label="COP · Demo" />}>
-              <Row gap={16} align="center">
-                <Chip label="Anticipos" dot="filled" />
-                <View style={[styles.legend, { backgroundColor: colors.dangerBg }]}>
-                  <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors.dangerText }} />
-                  <T size={12} weight="semibold" color={colors.dangerText}>
-                    Pagos finales
-                  </T>
-                </View>
-                <Small>Total bruto · No descuenta devoluciones</Small>
-              </Row>
-              <Row gap={0} align="flex-end" style={{ height: ALTURA + 90, paddingTop: 20 }}>
-                {semanas.map((s) => (
-                  <View key={s.label} style={{ flex: 1, alignItems: 'center', gap: 8 }}>
-                    <T weight="semibold" numberOfLines={1}>{s.total}</T>
-                    <View style={{ width: '70%', maxWidth: 96, borderTopLeftRadius: 6, borderTopRightRadius: 6, overflow: 'hidden' }}>
-                      <View style={{ height: (s.pagos / MAX) * ALTURA, backgroundColor: colors.primary }} />
-                      <View style={{ height: (s.anticipos / MAX) * ALTURA, backgroundColor: colors.navy }} />
-                    </View>
-                    <T size={12} color={colors.textMuted}>
-                      {s.label}
-                    </T>
-                  </View>
-                ))}
-              </Row>
-              <Small>Moneda asumida COP · No se incluyen cargos futuros.</Small>
-            </Card>
-            <Card title="Resumen por espacio">
+            <Card title="Resumen consolidado por espacio" badge={<Chip label="Datos reales MySQL" />}>
               <Table
-                columns={[{ title: 'Espacio' }, { title: 'Reservas' }, { title: 'Canceladas' }, { title: 'Ingresos · COP' }]}
-                rows={[
-                  ['Fútbol', '10', '1', '$840.000'],
-                  ['Tejo', '6', '1', '$360.000'],
-                  ['Salón de Eventos', '4', '1', '$300.000'],
-                  ['Zona BBQ', '4', '1', '$180.000'],
-                  ['Total demo', '24', '4', '$1.680.000'],
+                columns={[
+                  { title: 'Espacio', flex: 1.5 },
+                  { title: 'Reservas' },
+                  { title: 'Canceladas' },
+                  { title: 'Ingreso neto · COP' },
                 ]}
+                rows={resumenPorEspacio}
+              />
+            </Card>
+
+            <Card title="Detalle de reservas e ingresos del periodo" badge={<Chip label={`${filasFiltradas.length} filas`} />}>
+              <Table
+                columns={[
+                  { title: 'Código / Cliente', flex: 1.4 },
+                  { title: 'Espacio / Fecha', flex: 1.3 },
+                  { title: 'Estado' },
+                  { title: 'Ingreso neto · COP' },
+                ]}
+                rows={
+                  filasFiltradas.length > 0
+                    ? filasFiltradas.map((r: any) => [
+                        [r.codigo, r.cliente],
+                        [`${nombreEspacio(r.espacio_id)} · ${r.fecha}`, r.franja],
+                        [r.estado, `Anticipo: ${formatCOP(Number(r.anticipo) || 0)}`],
+                        formatCOP(Number(r.ingreso_neto) || 0),
+                      ])
+                    : [[['Sin registros', 'No hay reservas con los filtros seleccionados'], ['---', '---'], ['---'], '$0']]
+                }
               />
             </Card>
           </>
@@ -157,28 +359,35 @@ export default function ReportesScreen() {
         aside={
           <>
             <Card title="Distribución de reservas">
-              <Barra label="Completadas" valor={16} total={24} color={colors.navy} />
-              <Barra label="Confirmadas" valor={4} total={24} color={colors.primary} />
-              <Barra label="Canceladas" valor={4} total={24} color={colors.textMuted} />
+              <Barra label="Completadas" valor={metricas.completadas} total={metricas.totalReservas} color={colors.navy} />
+              <Barra
+                label="Activas / Confirmadas"
+                valor={metricas.confirmadasActivas}
+                total={metricas.totalReservas}
+                color={colors.primary}
+              />
+              <Barra label="Canceladas" valor={metricas.canceladas} total={metricas.totalReservas} color={colors.textMuted} />
               <Divider />
               <T size={13} color={colors.textMuted} lh={1.45}>
-                Las 3 consultas finalizadas sin reserva se muestran por separado, no como cancelaciones.
+                Distribución calculada directamente sobre las {metricas.totalReservas} reservas filtradas.
               </T>
             </Card>
-            <Card title="Devoluciones y balance">
-              <DataRow label="Devoluciones autorizadas" value="$120.000" />
-              <DataRow label="Registradas como devueltas" value="$60.000" />
-              <DataRow label="Pendientes" value="$60.000" />
+
+            <Card title="Devoluciones y balance financiero">
+              <DataRow label="Ingresos por alquiler y anticipos" value={formatCOP(metricas.ingresosAlquiler)} />
+              <DataRow label="Ingresos por cobro de daños" value={formatCOP(metricas.ingresosDanos)} />
+              <DataRow label="Devoluciones de anticipo aplicadas" value={formatCOP(-metricas.totalDevoluciones)} />
               <Divider />
-              <DataRow label="Ingresos brutos" value="$1.680.000" />
-              <DataRow label="Devoluciones registradas" value="− $60.000" />
-              <DataRow big label="Balance demo · COP" value="$1.620.000" />
-              <Small>Solo se descuentan devoluciones efectivamente registradas, no las pendientes.</Small>
+              <DataRow big label="Balance neto · COP" value={formatCOP(metricas.ingresoNetoTotal)} />
+              <Small>
+                En reservas canceladas se contabiliza únicamente la retención neta (anticipo menos devolución).
+              </Small>
             </Card>
-            <Card title="Salida del reporte" badge={<Chip label="Concepto" />}>
-              <Button label="Exportar reporte · Futuro" variant="disabled" />
+
+            <Card title="Exportación del reporte" badge={<Chip label="CSV" />}>
+              <Button label="Exportar reporte CSV" onPress={exportarCSV} />
               <T size={13} color={colors.textMuted} lh={1.45}>
-                Formato y campos definitivos por definir. Esta vista no genera archivos ni consultas reales.
+                Descarga un archivo CSV compatible con Excel con el detalle de reservas, anticipos, daños, devoluciones e ingreso neto.
               </T>
             </Card>
           </>
@@ -198,13 +407,5 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.surface,
-  },
-  legend: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 11,
-    paddingVertical: 6,
-    borderRadius: radius.pill,
   },
 });

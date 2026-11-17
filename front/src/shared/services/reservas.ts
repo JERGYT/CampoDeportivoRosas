@@ -61,6 +61,9 @@ export interface ReservasService {
     monto_devolucion: number;
     metodo_devolucion: string;
   }): Promise<any>;
+
+  login(body: { correo: string; password: string }): Promise<any>;
+  obtenerReportes(params?: { desde?: string; hasta?: string }): Promise<any>;
 }
 
 const base = () => apiConfig.reservasUrl;
@@ -83,6 +86,14 @@ const api: ReservasService = {
   liquidar: (body) => request(base(), '/view/liquidar', { method: 'POST', body }),
   iniciarCancelacion: (body) => request(base(), '/view/iniciarcancelacion', { method: 'POST', body }),
   confirmarCancelacion: (body) => request(base(), '/view/confirmarcancelacion', { method: 'POST', body }),
+  login: (body) => request(base(), '/view/login', { method: 'POST', body }),
+  obtenerReportes: (params) => {
+    const qs = new URLSearchParams();
+    if (params?.desde) qs.append('desde', params.desde);
+    if (params?.hasta) qs.append('hasta', params.hasta);
+    const suffix = qs.toString() ? `?${qs.toString()}` : '';
+    return request(base(), `/view/reportes${suffix}`);
+    },
 };
 
 /**
@@ -174,6 +185,37 @@ const mock: ReservasService = {
   async liquidar() { return { status: 'success', mensaje: 'Liquidación completada.' }; },
   async iniciarCancelacion() { return { status: 'success', reserva: {} }; },
   async confirmarCancelacion() { return { status: 'success', mensaje: 'Cancelada', auditoria: {} }; },
+
+
+  async login(body) {
+    const esAdmin = body.correo.includes('admin');
+    return {
+      status: 'success',
+      token: 'mock-token',
+      usuario: {
+        id: esAdmin ? 1 : 2,
+        nombre: esAdmin ? 'Ana Martínez (Administradora)' : 'Carlos Gómez (Operario)',
+        correo: body.correo,
+        rol: esAdmin ? 'ADMINISTRADOR' : 'OPERARIO',
+      },
+    };
+  },
+  async obtenerReportes() {
+    return {
+      status: 'success',
+      resumen: {
+        total_reservas: 0,
+        activas_confirmadas: 0,
+        completadas: 0,
+        canceladas: 0,
+        ingresos_alquiler: 0,
+        ingresos_danos: 0,
+        total_devoluciones: 0,
+        ingreso_neto_total: 0,
+      },
+      detalle: [],
+    };
+  },
 };
 
-export const reservasService: ReservasService = api;
+export const reservasService: ReservasService = apiConfig.useMocks ? mock : api;

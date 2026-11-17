@@ -11,5 +11,11 @@ return function(App $app) {
         $group->get('/cronograma', [DisponibilidadController::class, 'cronograma']);
         $group->post('/bloquear', [DisponibilidadController::class, 'bloquear']);
         $group->post('/liberar', [DisponibilidadController::class, 'liberar']);
+
+        
+        $group->get('/horarios', [DisponibilidadController::class, 'listarHorarios']);
+        $group->post('/horarios', [DisponibilidadController::class, 'crearHorario']);
+        $group->post('/horarios/actualizar', [DisponibilidadController::class, 'actualizarHorario']);
+        $group->post('/horarios/eliminar', [DisponibilidadController::class, 'eliminarHorario']);
     });
 };

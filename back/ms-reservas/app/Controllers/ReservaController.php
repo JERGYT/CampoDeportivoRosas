@@ -274,20 +274,16 @@ class ReservaController {
 
     public function iniciarCancelacion(Request $request, Response $response): Response {
         $data = json_decode((string)$request->getBody(), true);
+        if (json_last_error() !== JSON_ERROR_NONE || !is_array($data)) {
+            $response->getBody()->write(json_encode(["status" => "error", "mensaje" => "JSON inválido."]));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(400);
+        }
         $id = $data['reserva_id'] ?? null;
 
         $reserva = $this->reservaRepository->obtenerPorId($id);
         if (!$reserva) {
             $response->getBody()->write(json_encode(["status" => "error", "mensaje" => "Reserva no encontrada."]));
             return $response->withHeader('Content-Type', 'application/json')->withStatus(404);
-        }
-
-        if ($reserva->estado === 'CANCELADA') {
-            $response->getBody()->write(json_encode([
-                "status" => "error",
-                "mensaje" => "La reserva ya se encuentra en estado CANCELADA."
-            ]));
-            return $response->withHeader('Content-Type', 'application/json')->withStatus(400);
         }
 
         if ($reserva->estado === 'COMPLETADA') {
@@ -298,11 +294,21 @@ class ReservaController {
             return $response->withHeader('Content-Type', 'application/json')->withStatus(400);
         }
 
+        if (in_array($reserva->estado, ['ENTREGADA', 'RECIBIDA'])) {
+            $response->getBody()->write(json_encode([
+                "status" => "error",
+                "mensaje" => "No se puede cancelar una reserva cuyo espacio ya fue entregado o recibido (estado: {$reserva->estado})."
+            ]));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(400);
+        }
+
         $alquiler = 120000.00;
         $anticipo = floatval($reserva->anticipo ?? 0);
         $saldoPendiente = max(0, $alquiler - $anticipo);
 
-        $montoDevolucionSugerido = $anticipo;
+        $montoDevolucionSugerido = $reserva->estado === 'CANCELADA' && floatval($reserva->monto_devolucion ?? 0) > 0
+            ? floatval($reserva->monto_devolucion)
+            : $anticipo;
 
         $response->getBody()->write(json_encode([
             "status" => "success",
@@ -320,7 +326,11 @@ class ReservaController {
                 "alquiler" => $alquiler,
                 "anticipo" => $anticipo,
                 "saldo_pendiente" => $saldoPendiente,
-                "monto_devolucion_sugerido" => $montoDevolucionSugerido
+                "monto_devolucion_sugerido" => $montoDevolucionSugerido,
+                "motivo_cancelacion" => $reserva->motivo_cancelacion,
+                "monto_devolucion" => floatval($reserva->monto_devolucion ?? 0),
+                "metodo_devolucion" => $reserva->metodo_devolucion,
+                "fecha_cancelacion" => $reserva->fecha_cancelacion
             ]
         ]));
         return $response->withHeader('Content-Type', 'application/json')->withStatus(200);
@@ -344,15 +354,24 @@ class ReservaController {
             return $response->withHeader('Content-Type', 'application/json')->withStatus(404);
         }
 
-        if (in_array($reserva->estado, ['CANCELADA', 'COMPLETADA'])) {
+        if (in_array($reserva->estado, ['COMPLETADA', 'ENTREGADA', 'RECIBIDA'])) {
             $response->getBody()->write(json_encode([
                 "status" => "error",
-                "mensaje" => "No se puede cancelar una reserva que ya está en estado {$reserva->estado}."
+                "mensaje" => "No se puede cancelar ni devolver anticipo de una reserva en estado {$reserva->estado}."
             ]));
             return $response->withHeader('Content-Type', 'application/json')->withStatus(400);
         }
 
-        $fechaCancelacion = date('Y-m-d H:i:s');
+        $anticipoActual = floatval($reserva->anticipo ?? 0);
+        if ($montoDevolucion < 0 || $montoDevolucion > $anticipoActual) {
+            $response->getBody()->write(json_encode([
+                "status" => "error",
+                "mensaje" => "El monto a devolver no puede ser negativo ni superar el anticipo pagado ($" . number_format($anticipoActual, 0, ',', '.') . " COP)."
+            ]));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(400);
+        }
+
+        $fechaCancelacion = $reserva->fecha_cancelacion ?: date('Y-m-d H:i:s');
         $this->reservaRepository->actualizar($id, [
             'estado' => 'CANCELADA',
             'motivo_cancelacion' => $motivo,

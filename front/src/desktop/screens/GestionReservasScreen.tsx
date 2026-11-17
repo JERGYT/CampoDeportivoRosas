@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 import { View } from 'react-native';
 import { useState, useMemo, useEffect } from 'react';
+import { authService } from '../../shared/services/auth';
 import { reservasService } from '../../shared/services/reservas';
 import { disponibilidadService, type Espacio } from '../../shared/services/disponibilidad';
 import { colors } from '../../shared/theme/tokens';
@@ -22,20 +23,21 @@ import {
   Table,
   Timeline,
 } from '../components/ui';
-import { historialR1048, listadoReservas } from '../data/demo';
 import { routes } from '../navigation';
 
 const ESTADOS = ['CONFIRMADA', 'ENTREGADA', 'RECIBIDA', 'COMPLETADA', 'CANCELADA'];
 
-function accionesPara(fila: any) {
+function accionesPara(fila: any, esAdmin: boolean): { primaria: [string, any]; secundaria?: [string, any]; nota: string } {
   const est = (fila?.estado || '').toUpperCase();
 
   switch (est) {
     case 'CONFIRMADA':
       return {
         primaria: ['Validar y entregar espacio', routes.entrega],
-        secundaria: ['Iniciar cancelación', routes.cancelacion],
-        nota: 'La reserva está confirmada: puede entregarse tras validar el checklist.',
+        secundaria: esAdmin ? ['Iniciar cancelación', routes.cancelacion] : undefined,
+        nota: esAdmin
+          ? 'La reserva está confirmada: puede entregarse tras validar el checklist.'
+          : 'Perfil Operario: habilitado para validar y entregar el espacio.',
       };
     case 'ENTREGADA':
       return {
@@ -43,21 +45,31 @@ function accionesPara(fila: any) {
         nota: 'El espacio está en uso. Al concluir la franja horaria, realiza la recepción física.',
       };
     case 'RECIBIDA':
-      return {
-        primaria: ['Liquidar reserva', routes.liquidacion],
-        nota: 'El espacio ya fue recibido: procede con el balance de daños y el pago final.',
-      };
+      return esAdmin
+        ? {
+            primaria: ['Liquidar reserva', routes.liquidacion],
+            nota: 'El espacio ya fue recibido: procede con el balance de daños y el pago final.',
+          }
+        : {
+            primaria: ['Registrar daños / novedades', routes.danos],
+            nota: 'Perfil Operario: puedes registrar novedades de recepción; la liquidación final la realiza el Administrador.',
+          };
     case 'COMPLETADA':
       return {
-        primaria: ['Ver liquidación', routes.liquidacion],
+        primaria: esAdmin ? ['Ver liquidación', routes.liquidacion] : ['Nueva reserva', routes.nuevaReserva],
         nota: 'Reserva cerrada con saldo $0.',
       };
     case 'CANCELADA':
-      return {
-        primaria: ['Gestionar devolución', routes.devolucion],
-        secundaria: ['Ver auditoría de cancelación', routes.cancelacionCompletada],
-        nota: 'La reserva fue cancelada y el horario liberado.',
-      };
+      return esAdmin
+        ? {
+            primaria: ['Gestionar devolución', routes.devolucion],
+            secundaria: ['Ver auditoría de cancelación', routes.cancelacionCompletada],
+            nota: 'La reserva fue cancelada y el horario liberado.',
+          }
+        : {
+            primaria: ['Nueva reserva', routes.nuevaReserva],
+            nota: 'La reserva fue cancelada y el horario liberado.',
+          };
     default:
       return {
         primaria: ['Nueva reserva', routes.nuevaReserva],
@@ -187,8 +199,9 @@ export default function GestionReservasScreen() {
     [filtros, reservasAdaptadas],
   );
 
+  const esAdmin = authService.esAdministrador();
   const actual = reservasAdaptadas.find((f: any) => f.ref === seleccion) ?? reservasAdaptadas[0] ?? filaVacia;
-  const acciones = accionesPara(actual);
+  const acciones = accionesPara(actual, esAdmin);
 
   const limpiar = () => {
     setEstado('todos');
@@ -318,6 +331,7 @@ export default function GestionReservasScreen() {
               {/* ÚNICO BOTÓN PRIMARIO DINÁMICO */}
               <Button
                 label={acciones.primaria[0]}
+                style={{ alignSelf: 'stretch', justifyContent: 'center' }}
                 onPress={() => {
                   const destino = actual?.id ? `${acciones.primaria[1]}?id=${actual.id}` : acciones.primaria[1];
                   router.push(destino as any);
@@ -329,7 +343,11 @@ export default function GestionReservasScreen() {
                 <Button
                   label={acciones.secundaria[0]}
                   variant="secondary"
-                  onPress={() => router.push(acciones.secundaria![1] as any)}
+                  style={{ alignSelf: 'stretch', justifyContent: 'center' }}
+                  onPress={() => {
+                    const destino = actual?.id ? `${acciones.secundaria![1]}?id=${actual.id}` : acciones.secundaria![1];
+                    router.push(destino as any);
+                  }}
                 />
               ) : null}
 

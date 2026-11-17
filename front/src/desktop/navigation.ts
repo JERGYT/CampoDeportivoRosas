@@ -50,5 +50,5 @@ export const screenMeta: Record<string, ScreenMeta> = {
   [routes.cancelacion]: { breadcrumb: 'Administración  /  Cancelaciones  /  Cancelar una reserva confirmada', active: ['cancelaciones'] },
   [routes.cancelacionCompletada]: { breadcrumb: 'Administración  /  Cancelaciones  /  Cancelación completada y auditoría', active: ['reserva', 'cancelaciones'] },
   [routes.devolucion]: { breadcrumb: 'Administración  /  Pagos  /  Devolución del anticipo', active: ['pagos'] },
-  [routes.reportes]: { breadcrumb: 'Administración  /  Reportes · Futuro  /  Reportes de reservas e ingresos', active: ['reportes'] },
+  [routes.reportes]: { breadcrumb: 'Administración  /  Reportes  /  Reportes de reservas e ingresos', active: ['reportes'] },
 };
