@@ -8,11 +8,24 @@ USE `db_reservas`;
 
 SET FOREIGN_KEY_CHECKS = 0;
 
+DROP TABLE IF EXISTS `usuarios`;
 DROP TABLE IF EXISTS `pagos`;
 DROP TABLE IF EXISTS `reservas`;
 DROP TABLE IF EXISTS `clientes`;
 
 SET FOREIGN_KEY_CHECKS = 1;
+
+-- -----------------------------------------------------------------------------
+-- Tabla: usuarios (Sprint 5 · HU-18 Autenticación y Roles)
+-- -----------------------------------------------------------------------------
+CREATE TABLE `usuarios` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `nombre` VARCHAR(120) NOT NULL,
+  `correo` VARCHAR(120) NOT NULL UNIQUE,
+  `password` VARCHAR(255) NOT NULL,
+  `rol` VARCHAR(30) NOT NULL DEFAULT 'OPERARIO' COMMENT 'ADMINISTRADOR, OPERARIO',
+  `activo` TINYINT(1) NOT NULL DEFAULT 1
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- -----------------------------------------------------------------------------
 -- Tabla: clientes
@@ -68,6 +81,10 @@ CREATE TABLE `pagos` (
 -- =============================================================================
 -- DATOS INICIALES SEMILLA (SEED DATA)
 -- =============================================================================
+INSERT INTO `usuarios` (`id`, `nombre`, `correo`, `password`, `rol`, `activo`) VALUES
+(1, 'Ana Martínez (Administradora)', 'admin@losrosas.com', 'admin123', 'ADMINISTRADOR', 1),
+(2, 'Carlos Gómez (Operario)', 'operario@losrosas.com', 'operario123', 'OPERARIO', 1);
+
 INSERT INTO `clientes` (`id`, `nombre`, `telefono`, `correo`, `tipo`) VALUES
 (1, 'Escuela de Fútbol Semillero Boyacá', '3104445566', 'semillero@boyaca.com', 'ESCUELA_FORMACION'),
 (2, 'Torneo Senior Master Duitama', '3128889900', 'torneos@master.com', 'CAMPEONATO'),

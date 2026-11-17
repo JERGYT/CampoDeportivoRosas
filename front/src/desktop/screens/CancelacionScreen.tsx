@@ -16,16 +16,19 @@ export default function CancelacionScreen() {
   const [cargando, setCargando] = useState(false);
   const [mensajeError, setMensajeError] = useState<string | null>(null);
 
-  // Carga inicial de reservas para el selector
+  
   useEffect(() => {
     let activo = true;
-    reservasService.listarReservas().then((res: any) => {
-      if (activo && res?.reservas && res.reservas.length > 0) {
-        setReservas(res.reservas);
-        const buscado = Number(params.id) || res.reservas[0].id;
-        setReservaId(buscado);
-      }
-    });
+    reservasService
+      .listarReservas()
+      .then((res: any) => {
+        if (activo && res?.reservas && res.reservas.length > 0) {
+          setReservas(res.reservas);
+          const buscado = Number(params.id) || res.reservas[0].id;
+          setReservaId(buscado);
+        }
+      })
+      .catch(() => {});
     return () => {
       activo = false;
     };
@@ -82,7 +85,7 @@ export default function CancelacionScreen() {
           );
         })
         .catch((err: any) => {
-          alert(err.message || 'Error al procesar la cancelación.');
+          setMensajeError(err.message || 'Error al procesar la cancelación.');
         })
         .finally(() => {
           setCargando(false);
@@ -205,13 +208,13 @@ export default function CancelacionScreen() {
               Efectos de la cancelación:
             </T>
             <T size={13} color="#4B5563" lh={1.45} style={{ marginTop: 4 }}>
-              • El estado de la reserva cambiará a <T weight="bold">CANCELADA</T>[cite: 31].
+              • El estado de la reserva cambiará a <T weight="bold">CANCELADA</T>.
             </T>
             <T size={13} color="#4B5563" lh={1.45}>
-              • La franja horaria en la agenda quedará <T weight="bold">liberada</T> inmediatamente[cite: 31].
+              • La franja horaria en la agenda quedará <T weight="bold">liberada</T> inmediatamente.
             </T>
             <T size={13} color="#4B5563" lh={1.45}>
-              • {tieneAnticipo ? `Existe un anticipo de ${formatCOP(detalle.anticipo)} por reintegrar[cite: 31].` : 'Reserva sin anticipo: no requiere reintegro financiero[cite: 31].'}
+              • {tieneAnticipo ? `Existe un anticipo de ${formatCOP(detalle.anticipo)} por reintegrar.` : 'Reserva sin anticipo: no requiere reintegro financiero.'}
             </T>
           </Card>
         }

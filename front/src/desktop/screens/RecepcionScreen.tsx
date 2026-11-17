@@ -19,12 +19,15 @@ export default function RecepcionScreen() {
   const [hayDanos, setHayDanos] = useState(false);
 
   useEffect(() => {
-    reservasService.listarReservas().then((res: any) => {
-      if (res?.reservas && res.reservas.length > 0) {
-        setReservas(res.reservas);
-        if (!reservaId) setReservaId(res.reservas[0].id);
-      }
-    });
+    reservasService
+      .listarReservas()
+      .then((res: any) => {
+        if (res?.reservas && res.reservas.length > 0) {
+          setReservas(res.reservas);
+          setReservaId((prev) => prev || res.reservas[0].id);
+        }
+      })
+      .catch(() => {});
   }, []);
 
   const reserva = reservas.find((r) => r.id === reservaId) || reservas[0];

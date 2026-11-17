@@ -5,7 +5,14 @@
 
 // ───────────── ms-disponibilidad ─────────────
 
-export type TipoEspacio = 'FUTBOL' | 'TEJO' | 'SALON_COMUNAL' | 'BARBECUE';
+export type TipoEspacio =
+  | 'FUTBOL'
+  | 'CANCHA_FUTBOL'
+  | 'TEJO'
+  | 'CANCHA_TEJO'
+  | 'SALON_COMUNAL'
+  | 'BARBECUE'
+  | 'ZONA_BARBECUE';
 
 /** Tabla espacios (db_disponibilidad). Los campos opcionales dependen del tipo. */
 export interface Espacio {
@@ -27,9 +34,9 @@ export interface BloqueoHorario {
   id: number;
   espacio_id: number;
   reserva_id: number;
-  fecha: string; // YYYY-MM-DD
-  hora_inicio: string; // HH:MM:SS
-  hora_fin: string; // HH:MM:SS
+  fecha: string;
+  hora_inicio: string; 
+  hora_fin: string; 
   tipo: string;
   created_at?: string;
 }
@@ -73,7 +80,7 @@ export interface BloquearRequest {
   fecha: string;
   hora_inicio: string;
   hora_fin: string;
-  tipo?: string; // RESERVA | MANTENIMIENTO …
+  tipo?: string; 
 }
 export interface BloquearResponse {
   status: 'success' | 'error';

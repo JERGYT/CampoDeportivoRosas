@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { View, Pressable } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { TitleBar, TwoColumns } from '../components/composites';
-import { Button, Card, SelectField, Field, T, Divider, Chip, Row } from '../components/ui';
+import { Button, Card, SelectField, Field, T, Divider, Row } from '../components/ui';
 import { reservasService } from '../../shared/services/reservas';
 import { formatCOP } from '../../shared/utils/format';
 import { routes } from '../navigation';
@@ -25,12 +25,15 @@ export default function DanosScreen() {
   const [mensaje, setMensaje] = useState<string | null>(null);
 
   useEffect(() => {
-    reservasService.listarReservas().then((res: any) => {
-      if (res?.reservas && res.reservas.length > 0) {
-        setReservas(res.reservas);
-        if (!reservaId) setReservaId(res.reservas[0].id);
-      }
-    });
+    reservasService
+      .listarReservas()
+      .then((res: any) => {
+        if (res?.reservas && res.reservas.length > 0) {
+          setReservas(res.reservas);
+          setReservaId((prev) => prev || res.reservas[0].id);
+        }
+      })
+      .catch(() => {});
   }, []);
 
   const reserva = reservas.find((r) => r.id === reservaId) || reservas[0];

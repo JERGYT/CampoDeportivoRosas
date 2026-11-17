@@ -36,7 +36,7 @@ export default function NuevaReservaScreen() {
   const [espacioId, setEspacioId] = useState<number>(1);
   const [entidad, setEntidad] = useState('');
 
-  // Estados vacíos por defecto (sin datos automáticos quemados)
+  
   const [fecha, setFecha] = useState('');
   const [horaInicio, setHoraInicio] = useState('');
   const [horaFin, setHoraFin] = useState('');
@@ -48,24 +48,41 @@ export default function NuevaReservaScreen() {
   const [mensajeResultado, setMensajeResultado] = useState<string | null>(null);
   const [esError, setEsError] = useState(false);
 
-  // HU-06: Sugerencias alternativas
+  
   const [sugerencias, setSugerencias] = useState<any[]>([]);
+  
+  const [horariosEspacio, setHorariosEspacio] = useState<any[]>([]);
 
   useEffect(() => {
-    reservasService.listarClientes().then((r) => {
-      if (r?.clientes && r.clientes.length > 0) {
-        setClientes(r.clientes);
-        setClienteId(r.clientes[0].id);
-      }
-    });
+    reservasService
+      .listarClientes()
+      .then((r) => {
+        if (r?.clientes && r.clientes.length > 0) {
+          setClientes(r.clientes);
+          setClienteId(r.clientes[0].id);
+        }
+      })
+      .catch(() => {});
 
-    disponibilidadService.obtenerEspacios().then((esp) => {
-      if (esp && esp.length > 0) {
-        setEspacios(esp);
-        setEspacioId(esp[0].id);
-      }
-    });
+    disponibilidadService
+      .obtenerEspacios()
+      .then((esp) => {
+        if (esp && esp.length > 0) {
+          setEspacios(esp);
+          setEspacioId(esp[0].id);
+        }
+      })
+      .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (espacioId > 0) {
+      disponibilidadService
+        .listarHorarios(espacioId)
+        .then((res: any) => setHorariosEspacio(res?.horarios || []))
+        .catch(() => setHorariosEspacio([]));
+    }
+  }, [espacioId]);
 
   const clienteSeleccionado = clientes.find((c) => c.id === clienteId);
   const tipoCliente = clienteSeleccionado?.tipo || 'PARTICULAR';
@@ -244,7 +261,7 @@ export default function NuevaReservaScreen() {
                   description={`La franja de ${horaInicio || '--:--'} a ${horaFin || '--:--'} se encuentra ocupada o fuera del horario de atención.`}
                 />
 
-                {/* HU-06: Sugerencias y aceptación de alternativa */}
+                {/* Sugerencias y aceptación de alternativa */}
                 {sugerencias.length > 0 && (
                   <View style={{ padding: 14, backgroundColor: '#FEF3C7', borderRadius: 8, borderWidth: 1, borderColor: '#F59E0B' }}>
                     <T weight="semibold" style={{ color: '#92400E', marginBottom: 8 }}>
@@ -273,7 +290,7 @@ export default function NuevaReservaScreen() {
               </View>
             )}
 
-            {/* Mensajes de confirmación HU-08 / HU-09 */}
+            {/* Mensajes de confirmación*/}
             {mensajeResultado && (
               <AlertBox
                 tone={esError ? 'danger' : 'success'}
@@ -300,11 +317,23 @@ export default function NuevaReservaScreen() {
         aside={
           <Card title="Regla del perfil" badge={<Chip label={tipoCliente} />}>
             <T size={14} weight="semibold" lh={1.45}>
-              {tipoCliente === 'ESCUELA_FORMACION' ? 'Lunes a sábado' : 'Sábados y domingos'}
+              {tipoCliente === 'ESCUELA_FORMACION' ? 'Días permitidos: Lunes a sábado' : 'Días permitidos: Sábados y domingos'}
             </T>
-            <T size={13} color="#6B7280" lh={1.45}>
-              Horario de atención general: lunes a domingo, 06:00 – 22:00.
-            </T>
+            <Divider />
+            <T size={14} weight="semibold">Horarios de atención vigentes del espacio:</T>
+            {horariosEspacio.length > 0 ? (
+              <View style={{ gap: 4, marginTop: 4 }}>
+                {horariosEspacio.map((h, idx) => (
+                  <T key={h.id || idx} size={13} color="#374151" lh={1.4}>
+                    • {h.dia}: {String(h.hora_apertura || '').slice(0, 5)} – {String(h.hora_cierre || '').slice(0, 5)}
+                  </T>
+                ))}
+              </View>
+            ) : (
+              <T size={13} color="#6B7280" lh={1.45}>
+                Sin horarios registrados para este espacio.
+              </T>
+            )}
             <Divider />
             <T size={14} weight="semibold">Condiciones de pago:</T>
             <T size={13} color="#6B7280" lh={1.45}>

@@ -114,4 +114,178 @@ class DisponibilidadController {
             return $response->withHeader('Content-Type', 'application/json')->withStatus(500);
         }
     }
+
+
+
+
+    
+    public function listarHorarios(Request $request, Response $response): Response
+    {
+        $params = $request->getQueryParams();
+        $espacioId = $params['espacio_id'] ?? null;
+
+        $query = \Illuminate\Database\Capsule\Manager::table('horarios_atencion')
+            ->join('espacios', 'horarios_atencion.espacio_id', '=', 'espacios.id')
+            ->select(
+                'horarios_atencion.id',
+                'horarios_atencion.espacio_id',
+                'espacios.nombre as espacio_nombre',
+                'horarios_atencion.dia',
+                'horarios_atencion.hora_apertura',
+                'horarios_atencion.hora_cierre'
+            )
+            ->orderBy('horarios_atencion.espacio_id', 'asc')
+            ->orderBy('horarios_atencion.id', 'asc');
+
+        if (!empty($espacioId)) {
+            $query->where('horarios_atencion.espacio_id', (int)$espacioId);
+        }
+
+        $horarios = $query->get();
+
+        $response->getBody()->write(json_encode([
+            'status' => 'success',
+            'horarios' => $horarios
+        ]));
+        return $response->withHeader('Content-Type', 'application/json')->withStatus(200);
+    }
+
+    
+    public function crearHorario(Request $request, Response $response): Response
+    {
+        $data = json_decode((string)$request->getBody(), true);
+        if (json_last_error() !== JSON_ERROR_NONE || !is_array($data)) {
+            $response->getBody()->write(json_encode(['status' => 'error', 'mensaje' => 'JSON inválido.']));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(400);
+        }
+
+        $espacioId = (int)($data['espacio_id'] ?? 0);
+        $dia = trim($data['dia'] ?? '');
+        $apertura = trim($data['hora_apertura'] ?? '');
+        $cierre = trim($data['hora_cierre'] ?? '');
+
+        if ($espacioId <= 0 || $dia === '' || $apertura === '' || $cierre === '') {
+            $response->getBody()->write(json_encode(['status' => 'error', 'mensaje' => 'Todos los campos del horario son obligatorios.']));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(400);
+        }
+
+        if (strlen($apertura) === 5) $apertura .= ':00';
+        if (strlen($cierre) === 5) $cierre .= ':00';
+
+        if ($apertura >= $cierre) {
+            $response->getBody()->write(json_encode(['status' => 'error', 'mensaje' => 'La hora de apertura debe ser menor que la hora de cierre.']));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(400);
+        }
+
+        
+        $variantesDia = DisponibilidadRepository::variantesDia($dia);
+        $cruce = \Illuminate\Database\Capsule\Manager::table('horarios_atencion')
+            ->where('espacio_id', $espacioId)
+            ->whereIn('dia', $variantesDia)
+            ->where('hora_apertura', '<', $cierre)
+            ->where('hora_cierre', '>', $apertura)
+            ->exists();
+
+        if ($cruce) {
+            $response->getBody()->write(json_encode(['status' => 'error', 'mensaje' => "Ya existe un horario configurado el {$dia} que se cruza con esa franja."]));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(409);
+        }
+
+        $nuevoId = \Illuminate\Database\Capsule\Manager::table('horarios_atencion')->insertGetId([
+            'espacio_id' => $espacioId,
+            'dia' => $dia,
+            'hora_apertura' => $apertura,
+            'hora_cierre' => $cierre,
+        ]);
+
+        $response->getBody()->write(json_encode([
+            'status' => 'success',
+            'mensaje' => 'Horario de atención agregado correctamente.',
+            'id' => $nuevoId
+        ]));
+        return $response->withHeader('Content-Type', 'application/json')->withStatus(201);
+    }
+
+    
+    public function actualizarHorario(Request $request, Response $response): Response
+    {
+        $data = json_decode((string)$request->getBody(), true);
+        $id = (int)($data['id'] ?? 0);
+        $espacioId = (int)($data['espacio_id'] ?? 0);
+        $dia = trim($data['dia'] ?? '');
+        $apertura = trim($data['hora_apertura'] ?? '');
+        $cierre = trim($data['hora_cierre'] ?? '');
+
+        if ($id <= 0 || $espacioId <= 0 || $dia === '' || $apertura === '' || $cierre === '') {
+            $response->getBody()->write(json_encode(['status' => 'error', 'mensaje' => 'Datos incompletos para actualizar el horario.']));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(400);
+        }
+
+        if (strlen($apertura) === 5) $apertura .= ':00';
+        if (strlen($cierre) === 5) $cierre .= ':00';
+
+        if ($apertura >= $cierre) {
+            $response->getBody()->write(json_encode(['status' => 'error', 'mensaje' => 'La hora de apertura debe ser menor que la hora de cierre.']));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(400);
+        }
+
+        $existe = \Illuminate\Database\Capsule\Manager::table('horarios_atencion')->where('id', $id)->first();
+        if (!$existe) {
+            $response->getBody()->write(json_encode(['status' => 'error', 'mensaje' => 'Horario no encontrado.']));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(404);
+        }
+
+        $variantesDia = DisponibilidadRepository::variantesDia($dia);
+        $cruce = \Illuminate\Database\Capsule\Manager::table('horarios_atencion')
+            ->where('espacio_id', $espacioId)
+            ->whereIn('dia', $variantesDia)
+            ->where('id', '!=', $id)
+            ->where('hora_apertura', '<', $cierre)
+            ->where('hora_cierre', '>', $apertura)
+            ->exists();
+
+        if ($cruce) {
+            $response->getBody()->write(json_encode(['status' => 'error', 'mensaje' => "El nuevo rango se cruza con otro horario del {$dia}."]));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(409);
+        }
+
+        \Illuminate\Database\Capsule\Manager::table('horarios_atencion')
+            ->where('id', $id)
+            ->update([
+                'espacio_id' => $espacioId,
+                'dia' => $dia,
+                'hora_apertura' => $apertura,
+                'hora_cierre' => $cierre,
+            ]);
+
+        $response->getBody()->write(json_encode([
+            'status' => 'success',
+            'mensaje' => 'Horario modificado exitosamente.'
+        ]));
+        return $response->withHeader('Content-Type', 'application/json')->withStatus(200);
+    }
+
+    
+    public function eliminarHorario(Request $request, Response $response): Response
+    {
+        $data = json_decode((string)$request->getBody(), true);
+        $id = (int)($data['id'] ?? 0);
+
+        if ($id <= 0) {
+            $response->getBody()->write(json_encode(['status' => 'error', 'mensaje' => 'ID de horario inválido.']));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(400);
+        }
+
+        $eliminado = \Illuminate\Database\Capsule\Manager::table('horarios_atencion')->where('id', $id)->delete();
+        if (!$eliminado) {
+            $response->getBody()->write(json_encode(['status' => 'error', 'mensaje' => 'El horario no existe o ya fue eliminado.']));
+            return $response->withHeader('Content-Type', 'application/json')->withStatus(404);
+        }
+
+        $response->getBody()->write(json_encode([
+            'status' => 'success',
+            'mensaje' => 'Horario eliminado correctamente.'
+        ]));
+        return $response->withHeader('Content-Type', 'application/json')->withStatus(200);
+    }
 }

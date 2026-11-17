@@ -20,13 +20,16 @@ export default function EntregaScreen() {
   const [check4, setCheck4] = useState(true);
 
   useEffect(() => {
-    reservasService.listarReservas().then((res: any) => {
-      if (res?.reservas && res.reservas.length > 0) {
-        setReservas(res.reservas);
-        const idBuscado = Number(params.id) || res.reservas[0].id;
-        setReservaId(idBuscado);
-      }
-    });
+    reservasService
+      .listarReservas()
+      .then((res: any) => {
+        if (res?.reservas && res.reservas.length > 0) {
+          setReservas(res.reservas);
+          const idBuscado = Number(params.id) || res.reservas[0].id;
+          setReservaId(idBuscado);
+        }
+      })
+      .catch(() => {});
   }, [params.id]);
 
   const reserva = reservas.find((r) => Number(r.id) === Number(reservaId)) || reservas[0];

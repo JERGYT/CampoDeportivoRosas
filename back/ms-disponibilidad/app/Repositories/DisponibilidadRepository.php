@@ -5,17 +5,45 @@ use App\Models\BloqueoHorario;
 use App\Models\HorarioAtencion;
 
 class DisponibilidadRepository {
+    public static function variantesDia(string $dia): array {
+        $limpio = strtoupper(strtr(trim($dia), [
+            'á' => 'A', 'é' => 'E', 'í' => 'I', 'ó' => 'O', 'ú' => 'U',
+            'Á' => 'A', 'É' => 'E', 'Í' => 'I', 'Ó' => 'O', 'Ú' => 'U',
+        ]));
+        $mapa = [
+            'LUNES'     => ['LUNES', 'Lunes', 'lunes'],
+            'MARTES'    => ['MARTES', 'Martes', 'martes'],
+            'MIERCOLES' => ['MIERCOLES', 'MIÉRCOLES', 'Miércoles', 'Miercoles', 'miércoles', 'miercoles'],
+            'JUEVES'    => ['JUEVES', 'Jueves', 'jueves'],
+            'VIERNES'   => ['VIERNES', 'Viernes', 'viernes'],
+            'SABADO'    => ['SABADO', 'SÁBADO', 'Sábado', 'Sabado', 'sábado', 'sabado'],
+            'DOMINGO'   => ['DOMINGO', 'Domingo', 'domingo'],
+        ];
+        return $mapa[$limpio] ?? [$dia, $limpio];
+    }
+
     public function consultarDisponibilidad($espacioId, $fecha, $horaInicio, $horaFin) {
         $diasSemana = [1 => 'LUNES', 2 => 'MARTES', 3 => 'MIERCOLES', 4 => 'JUEVES', 5 => 'VIERNES', 6 => 'SABADO', 7 => 'DOMINGO'];
-        $diaIndex = date('N', strtotime($fecha));
-        $diaNombre = $diasSemana[$diaIndex];
+        $diaIndex = (int)date('N', strtotime($fecha));
+        $diaNombre = $diasSemana[$diaIndex] ?? 'LUNES';
 
-        $horario = HorarioAtencion::where('espacio_id', $espacioId)
-            ->where('dia', $diaNombre)
-            ->first();
+        if (strlen($horaInicio) === 5) $horaInicio .= ':00';
+        if (strlen($horaFin) === 5) $horaFin .= ':00';
 
-        if (!$horario) return false;
-        if ($horaInicio < $horario->hora_apertura || $horaFin > $horario->hora_cierre) {
+        $horarios = HorarioAtencion::where('espacio_id', $espacioId)
+            ->whereIn('dia', self::variantesDia($diaNombre))
+            ->get();
+
+        if ($horarios->isEmpty()) return false;
+
+        $dentroDeHorario = false;
+        foreach ($horarios as $h) {
+            if ($horaInicio >= $h->hora_apertura && $horaFin <= $h->hora_cierre) {
+                $dentroDeHorario = true;
+                break;
+            }
+        }
+        if (!$dentroDeHorario) {
             return false;
         }
 

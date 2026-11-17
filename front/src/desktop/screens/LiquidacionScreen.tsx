@@ -14,14 +14,18 @@ export default function LiquidacionScreen() {
   const [metodoPago, setMetodoPago] = useState('EFECTIVO');
   const [cargando, setCargando] = useState(false);
   const [resultado, setResultado] = useState<any | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
-    reservasService.listarReservas().then((res: any) => {
-      if (res?.reservas && res.reservas.length > 0) {
-        setReservas(res.reservas);
-        if (!reservaId) setReservaId(res.reservas[0].id);
-      }
-    });
+    reservasService
+      .listarReservas()
+      .then((res: any) => {
+        if (res?.reservas && res.reservas.length > 0) {
+          setReservas(res.reservas);
+          setReservaId((prev) => prev || res.reservas[0].id);
+        }
+      })
+      .catch(() => {});
   }, []);
 
   const reserva = reservas.find((r) => r.id === reservaId) || reservas[0];
@@ -32,7 +36,9 @@ export default function LiquidacionScreen() {
   const totalPagar = Math.max(0, (alquiler + danos) - anticipo);
 
   const onRegistrarPagoFinal = async () => {
+    if (!reserva?.id) return;
     setCargando(true);
+    setErrorMsg(null);
     try {
       const res = await reservasService.liquidar({
         reserva_id: reserva.id,
@@ -40,7 +46,7 @@ export default function LiquidacionScreen() {
       });
       setResultado(res);
     } catch (err: any) {
-      alert(err.message || 'Error al liquidar');
+      setErrorMsg(err.message || 'Error al liquidar la reserva.');
     } finally {
       setCargando(false);
     }
@@ -95,10 +101,18 @@ export default function LiquidacionScreen() {
               onChange={setMetodoPago}
               options={[
                 { label: 'Efectivo', value: 'EFECTIVO' },
-                { label: 'Transferencia Nequi / Bancolombia', value: 'TRANSFERENCIA' },
+                { label: 'Transferencia Nequi 3127843274 / Bancolombia', value: 'TRANSFERENCIA' },
                 { label: 'Tarjeta Débito / Crédito', value: 'TARJETA' },
               ]}
             />
+
+            {errorMsg ? (
+              <View style={{ padding: 14, backgroundColor: '#FEF2F2', borderRadius: 8, borderWidth: 1, borderColor: '#EF4444', marginVertical: 12 }}>
+                <T weight="semibold" style={{ color: '#991B1B' }}>
+                  ✕ {errorMsg}
+                </T>
+              </View>
+            ) : null}
 
             {resultado && (
               <View style={{ padding: 14, backgroundColor: '#ECFDF5', borderRadius: 8, borderWidth: 1, borderColor: '#10B981', marginVertical: 12 }}>

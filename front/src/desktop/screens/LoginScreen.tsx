@@ -1,112 +1,195 @@
-import { Image } from 'expo-image';
-import { router } from 'expo-router';
-import { ClipboardCheck, ShieldCheck } from 'lucide-react-native';
 import { useState } from 'react';
-import { ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
-
-import { colors, radius } from '@/shared/theme/tokens';
-
+import { View, TextInput, Pressable, ScrollView } from 'react-native';
+import { router } from 'expo-router';
 import { Brand } from '../components/Brand';
-import { Button, Card, Field, Notice, Row, Small, T } from '../components/ui';
+import { Button, T, Divider, Row } from '../components/ui';
+import { reservasService } from '../../shared/services/reservas';
+import { authService } from '../../shared/services/auth';
 import { routes } from '../navigation';
 
-/** Panel azul: 720 px en el mockup (1600 px); en pantallas menores ocupa el 42 % del ancho. */
-function useWindowDimensionsLogin() {
-  const { width } = useWindowDimensions();
-  return { width: Math.min(720, Math.max(380, Math.round(width * 0.42))), compact: width < 1440 };
-}
-
-/** Acceso · Autenticación y roles. El back aún no tiene endpoint de login: ingresa al panel directamente. */
 export default function LoginScreen() {
-  const [correo, setCorreo] = useState('ana@losrosas.example');
-  const [clave, setClave] = useState('••••••••••••');
-  const { width, compact } = useWindowDimensionsLogin();
+  const [correo, setCorreo] = useState('admin@losrosas.com');
+  const [password, setPassword] = useState('admin123');
+  const [mostrarClave, setMostrarClave] = useState(false);
+  const [cargando, setCargando] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const onIngresar = () => {
+    if (cargando) return;
+    if (!correo.trim() || !password.trim()) {
+      setErrorMsg('Por favor ingresa tu correo institucional y contraseña.');
+      return;
+    }
+
+    setCargando(true);
+    setErrorMsg(null);
+
+    reservasService
+      .login({ correo: correo.trim(), password: password.trim() })
+      .then((res: any) => {
+        if (res?.status === 'success' && res.usuario) {
+          authService.setSesion(res.usuario);
+          router.replace(routes.reservas as any);
+        } else {
+          setErrorMsg(res?.mensaje || 'Credenciales inválidas.');
+        }
+      })
+      .catch((err: any) => {
+        setErrorMsg(err.message || 'No se pudo conectar con el servidor de autenticación.');
+      })
+      .finally(() => setCargando(false));
+  };
 
   return (
-    <View style={styles.root}>
-      <ScrollView style={[styles.welcome, { width }]} contentContainerStyle={{ padding: compact ? 40 : 64, gap: compact ? 24 : 32 }}>
-        <Brand />
-        <View style={{ paddingTop: 32, gap: 18 }}>
-          <T size={compact ? 38 : 48} weight="bold" color={colors.white} lh={1.12}>
-            Cada encuentro, bien organizado.
+    <ScrollView
+      contentContainerStyle={{
+        flexGrow: 1,
+        backgroundColor: '#F1F5F9',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 24,
+      }}
+    >
+      <View
+        style={{
+          width: '100%',
+          maxWidth: 440,
+          backgroundColor: '#FFFFFF',
+          borderRadius: 16,
+          padding: 32,
+          borderWidth: 1,
+          borderColor: '#E2E8F0',
+          shadowColor: '#0F172A',
+          shadowOpacity: 0.06,
+          shadowRadius: 16,
+          shadowOffset: { width: 0, height: 6 },
+        }}
+      >
+        {/* Cabecera institucional */}
+        <View style={{ alignItems: 'center', marginBottom: 24 }}>
+          <Brand dark centered />
+          <T size={20} weight="bold" style={{ marginTop: 14, color: '#0F172A', textAlign: 'center' }}>
+            Acceso al Sistema de Gestión
           </T>
-          <T size={18} color={colors.navMuted} lh={1.5}>
-            Un lugar para cuidar las reservas, los espacios y las personas que hacen parte de los Rosas.
+          <T size={13} color="#64748B" style={{ marginTop: 4, textAlign: 'center' }}>
+            Ingresa con tu cuenta de Administrador u Operario
           </T>
         </View>
-        <Image
-          source={require('@/assets/figma/campo-deportivo.png')}
-          contentFit="cover"
-          style={{ height: compact ? 260 : 340, borderRadius: 24 }}
-        />
-        <T color={colors.navMuted} lh={1.8}>
-          {'Fútbol  ·  Tejo  ·  Salón de Eventos  ·  Zona BBQ'}
-        </T>
-        <T size={12} color={colors.navMuted} lh={1.5}>
-          Acceso exclusivo del equipo de administración y operación.
-        </T>
-      </ScrollView>
 
-      <ScrollView
-        style={{ flex: 1 }}
-        contentContainerStyle={{ paddingHorizontal: compact ? 48 : 96, paddingVertical: compact ? 48 : 80, gap: compact ? 24 : 30 }}>
-        <View style={{ paddingTop: compact ? 16 : 56, gap: 10 }}>
-          <T size={32} weight="semibold" lh={1.45}>
-            Bienvenido de nuevo
-          </T>
-          <T color={colors.textMuted} lh={1.45}>
-            Ingresa con la cuenta asignada por la administración.
-          </T>
-        </View>
-
-        <Card title="Iniciar sesión">
-          <Field label="Correo de trabajo" value={correo} onChangeText={setCorreo} keyboardType="email-address" />
-          <Field label="Contraseña" value={clave} onChangeText={setClave} />
-          <Row gap={16}>
-            <T size={13} color={colors.textMuted} lh={1.45} style={{ flex: 1, minWidth: 160 }}>
-              Usa tus credenciales personales.
-            </T>
-            <T size={13} weight="semibold" color={colors.primary}>
-              ¿Olvidaste tu contraseña?
-            </T>
-          </Row>
-          <Button label="Ingresar al panel" onPress={() => router.replace(routes.reservas)} />
-          <Notice title="Tu rol ya está asignado">
-            El acceso muestra las funciones de tu cuenta. No puedes elegir ni cambiar tus privilegios al iniciar sesión.
-          </Notice>
-        </Card>
-
-        <T weight="semibold" lh={1.45}>
-          Un mismo equipo, responsabilidades distintas
-        </T>
-        <Row gap={16}>
-          <View style={styles.roleCard}>
-            <ShieldCheck size={18} color={colors.primary} strokeWidth={1.6} />
-            <T weight="semibold" lh={1.45}>
-              Administrador
-            </T>
-            <T size={13} color={colors.textMuted} lh={1.45}>
-              Entrega y recepción; además, daños, liquidación y cancelaciones.
+        {errorMsg ? (
+          <View
+            style={{
+              padding: 12,
+              backgroundColor: '#FEF2F2',
+              borderRadius: 8,
+              borderWidth: 1,
+              borderColor: '#EF4444',
+              marginBottom: 16,
+            }}
+          >
+            <T size={13} weight="semibold" style={{ color: '#991B1B' }}>
+              ✕ {errorMsg}
             </T>
           </View>
-          <View style={styles.roleCard}>
-            <ClipboardCheck size={18} color={colors.primary} strokeWidth={1.6} />
-            <T weight="semibold" lh={1.45}>
-              Operario
+        ) : null}
+
+        {/* Campo Correo */}
+        <View style={{ marginBottom: 14 }}>
+          <T size={13} weight="semibold" style={{ color: '#334155', marginBottom: 6 }}>
+            Correo electrónico
+          </T>
+          <TextInput
+            value={correo}
+            onChangeText={setCorreo}
+            placeholder="usuario@losrosas.com"
+            autoCapitalize="none"
+            keyboardType="email-address"
+            style={{
+              borderWidth: 1,
+              borderColor: '#CBD5E1',
+              borderRadius: 8,
+              paddingHorizontal: 12,
+              paddingVertical: 10,
+              fontSize: 14,
+              color: '#0F172A',
+              backgroundColor: '#F8FAFC',
+            }}
+          />
+        </View>
+
+        {/* Campo Contraseña enmascarado */}
+        <View style={{ marginBottom: 18 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
+            <T size={13} weight="semibold" style={{ color: '#334155' }}>
+              Contraseña
             </T>
-            <T size={13} color={colors.textMuted} lh={1.45}>
-              Valida la reserva, entrega el espacio y verifica la recepción.
-            </T>
+            <Pressable onPress={() => setMostrarClave(!mostrarClave)}>
+              <T size={12} weight="semibold" style={{ color: '#2563EB' }}>
+                {mostrarClave ? 'Ocultar' : 'Mostrar'}
+              </T>
+            </Pressable>
+          </View>
+          <TextInput
+            value={password}
+            onChangeText={setPassword}
+            placeholder="••••••••"
+            secureTextEntry={!mostrarClave}
+            onSubmitEditing={onIngresar}
+            style={{
+              borderWidth: 1,
+              borderColor: '#CBD5E1',
+              borderRadius: 8,
+              paddingHorizontal: 12,
+              paddingVertical: 10,
+              fontSize: 14,
+              color: '#0F172A',
+              backgroundColor: '#F8FAFC',
+            }}
+          />
+        </View>
+
+        <Button
+          label={cargando ? 'Validando credenciales...' : 'Iniciar sesión'}
+          loading={cargando}
+          onPress={onIngresar}
+          style={{ alignSelf: 'stretch', justifyContent: 'center' }}
+        />
+
+        <View style={{ marginVertical: 18 }}>
+          <Divider />
+        </View>
+
+        {/* Selector rápido de perfil para pruebas */}
+        <T size={12} color="#64748B" style={{ textAlign: 'center', marginBottom: 10 }}>
+          Perfiles de acceso rápido:
+        </T>
+        <Row gap={10} wrap={false}>
+          <View style={{ flex: 1 }}>
+            <Button
+              label="Administrador"
+              variant={correo === 'admin@losrosas.com' ? 'primary' : 'secondary'}
+              style={{ alignSelf: 'stretch', justifyContent: 'center' }}
+              onPress={() => {
+                setCorreo('admin@losrosas.com');
+                setPassword('admin123');
+                setErrorMsg(null);
+              }}
+            />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Button
+              label="Operario"
+              variant={correo === 'operario@losrosas.com' ? 'primary' : 'secondary'}
+              style={{ alignSelf: 'stretch', justifyContent: 'center' }}
+              onPress={() => {
+                setCorreo('operario@losrosas.com');
+                setPassword('operario123');
+                setErrorMsg(null);
+              }}
+            />
           </View>
         </Row>
-        <Small>Estos bloques son informativos, no un selector de rol. Si necesitas acceso, contacta a la administración.</Small>
-      </ScrollView>
-    </View>
+      </View>
+    </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  root: { flex: 1, flexDirection: 'row', backgroundColor: colors.background },
-  welcome: { flexGrow: 0, backgroundColor: colors.navy },
-  roleCard: { flex: 1, minWidth: 200, gap: 10, padding: 18, borderRadius: radius.card, backgroundColor: colors.surface },
-});
